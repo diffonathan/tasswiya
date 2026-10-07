@@ -447,7 +447,7 @@ ce projet : **tout passe par Docker**, et la recette ci-dessous est celle qui a
 servi à produire les chiffres de cette page.
 
 ```sh
-git clone <l'adresse de ce dépôt> tasswiya
+git clone https://github.com/diffonathan/tasswiya.git tasswiya
 cd tasswiya
 docker compose up -d
 ```
