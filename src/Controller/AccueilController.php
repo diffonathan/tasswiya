@@ -66,6 +66,22 @@ final class AccueilController extends AbstractController
             // refusee » et « hote introuvable » ne se corrigent pas au meme
             // endroit, et masquer la difference envoie chercher du cote deja
             // correct.
+            //
+            // MAIS SEULEMENT HORS PRODUCTION, et c'est une correction de
+            // deploiement. Le message de PDO cite l'adresse joignee : sur
+            // l'hebergement, « SQLSTATE[08006] ... host "ep-xxxx-pooler...
+            // neon.tech" user "tasswiya" » s'afficherait a tout visiteur de la
+            // page d'accueil, qui est publique. L'hote et l'utilisateur de la
+            // base ne sont pas des secrets a eux seuls, mais ils sont la
+            // moitie de ce qu'il faut pour en chercher le reste.
+            //
+            // Le message complet n'est pas perdu : `log_errors` l'envoie sur
+            // la sortie d'erreur, que l'hebergeur conserve. Il passe du
+            // navigateur au journal, ou seul le proprietaire le lit.
+            if (!$this->getParameter('kernel.debug')) {
+                return ['joignable' => false, 'detail' => 'injoignable — le message exact est dans les journaux du serveur'];
+            }
+
             return ['joignable' => false, 'detail' => $erreur->getMessage()];
         }
     }

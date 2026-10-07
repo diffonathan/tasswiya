@@ -88,6 +88,52 @@ ENV APP_ENV=prod \
 # L'hebergeur impose le port par une variable et ne le connait pas a l'avance :
 # l'ecrire en dur rendrait le service injoignable.
 ENV PORT=8080
+
+# ---------------------------------------------------------------------------
+# Le cache de production, construit MAINTENANT
+# ---------------------------------------------------------------------------
+#
+# POURQUOI A LA CONSTRUCTION ET NON AU DEMARRAGE : le conteneur gratuit
+# s'endort apres quinze minutes sans visite, et le visiteur suivant ATTEND son
+# reveil. Tout ce que le demarrage fait, il le fait devant lui. Prechauffer
+# ici, une fois, au lieu de le refaire a chaque reveil, retire ce temps du
+# chemin du visiteur et le met dans la construction, ou personne ne regarde.
+#
+# Les deux variables ci-dessous sont des LEURRES DE CONSTRUCTION, et elles ne
+# sont pas servies. Symfony ne fige pas la valeur d'un `%env()%` dans le
+# conteneur compile : il y laisse un marqueur, resolu a chaque demarrage. Mais
+# il refuse de compiler si la variable est absente — d'ou ces valeurs, qui
+# existent le temps d'une commande et ne sont ni dans l'image ni dans
+# l'environnement du processus servi (`RUN VAR=x cmd` ne vaut que pour `cmd`).
+#
+# `demarrer` relance tout de meme un prechauffage : avec ce cache deja en
+# place, il n'a plus rien a construire. Le garder est une ceinture — le jour ou
+# cette etape disparaitrait, le service demarrerait plus lentement au lieu de
+# ne pas demarrer.
+RUN APP_SECRET=leurre_de_construction_jamais_servi \
+    DATABASE_URL="postgresql://leurre:leurre@127.0.0.1:5432/leurre?serverVersion=16&charset=utf8" \
+    php bin/console cache:warmup --no-interaction \
+    && rm -rf var/log/*
+
+# ---------------------------------------------------------------------------
+# L'application ne tourne pas en root
+# ---------------------------------------------------------------------------
+#
+# L'image officielle de PHP demarre en root, et rien ne l'y oblige ici : le
+# serveur ecoute sur 8080, au-dessus des 1024 ports reserves. Le seul dossier
+# que l'application ecrit est `var/` — cache, journaux, et le decalage de
+# l'horloge de demonstration.
+#
+# `chown` sur `var/` SEULEMENT, et c'est volontaire : `vendor/`, `src/`,
+# `templates/` et `migrations/` restent en root, donc en lecture seule pour le
+# processus servi. Une faille d'execution de code arbitraire ne pourrait pas
+# reecrire un controleur et attendre la requete suivante.
+RUN addgroup -S tasswiya \
+    && adduser -S -D -H -G tasswiya tasswiya \
+    && chown -R tasswiya:tasswiya /app/var
+
+USER tasswiya
+
 EXPOSE 8080
 
 CMD ["demarrer"]

@@ -1,0 +1,36 @@
+# Les fins de ligne, et pourquoi ce fichier existe.
+#
+# Ce poste est sous Windows avec `core.autocrlf = true` : à chaque extraction,
+# Git convertit les fins de ligne LF du dépôt en CRLF dans la copie de travail.
+# Pour du PHP et du Twig, c'est sans conséquence.
+#
+# POUR UN SCRIPT DE SHELL, C'EST FATAL, et le message ne désigne pas la cause.
+# Le noyau Linux lit la première ligne, voit `#!/bin/sh\r` — avec le retour
+# chariot DANS le nom du programme — et répond « demarrer: not found » pour un
+# fichier qui est là, exécutable, et dont la première ligne est juste. Un
+# déploiement entier peut se perdre sur ce message.
+#
+# Le dépôt n'a pas encore été cloné sur une seconde machine, donc le piège
+# n'est pas armé — mais il le serait au premier `git clone` sous Windows, et le
+# jour où on en aurait besoin serait le pire pour le découvrir.
+#
+# `eol=lf` dit : « dans le dépôt comme dans la copie de travail, LF ». Les
+# fichiers visés sont ceux qu'un noyau Linux doit INTERPRÉTER :
+#   - les deux scripts de démarrage des images ;
+#   - `bin/console`, qui porte un shebang et n'a pas d'extension ;
+#   - les Dockerfile, dont les continuations de ligne `\` toléreraient mal un
+#     CR collé derrière.
+* text=auto
+
+*.sh text eol=lf
+bin/console text eol=lf
+Dockerfile text eol=lf
+docker/php/Dockerfile text eol=lf
+
+# Les PDF des sources officielles : binaires, jamais convertis.
+*.pdf binary
+
+# Les captures du README : binaires, jamais converties. `* text=auto` détecte
+# déjà le binaire tout seul, mais une détection n'est pas une déclaration — et
+# un JPEG dont deux octets auraient été traduits en CRLF ne s'ouvre plus.
+*.jpg binary

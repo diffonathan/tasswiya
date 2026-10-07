@@ -1,0 +1,119 @@
+# Déploiement de Tasswiya sur Render (offre gratuite).
+#
+# À importer depuis render.com → New → Blueprint, en pointant ce dépôt. Render
+# lit ce fichier et crée tout ce qu'il décrit. Le pas à pas, y compris la
+# création de la base, est dans `DEPLOIEMENT.md`.
+#
+# ⚠ TASSWIYA N'EST PAS UN CONSEIL JURIDIQUE. L'avertissement est sur chacun
+# des cinq écrans, et il doit l'être aussi partout où ce lien est présenté.
+#
+# ═══ POURQUOI DEUX HÉBERGEURS ET PAS UN ═══════════════════════════════════
+#
+# La base PostgreSQL gratuite de Render EXPIRE AU BOUT DE 30 JOURS. Celle de
+# Neon est permanente. Une démonstration qui meurt au bout d'un mois est pire
+# qu'une absence de démonstration : le lien est dans votre CV.
+#
+# La base vit donc chez Neon, jointe par DATABASE_URL, et Render n'héberge que
+# l'application. Conséquence agréable : les 512 Mo de l'offre gratuite sont
+# pour PHP SEUL, alors que le développement les partage avec PostgreSQL.
+#
+# ═══ CE QUI EST MESURÉ SUR CETTE IMAGE ════════════════════════════════════
+#
+# Construite et lancée le 7 octobre 2026, contre un PostgreSQL 16 voisin :
+#
+#   docker build -t tasswiya-prod .
+#   docker run -d --name essai --network tasswiya_default -p 8099:8080 #     --memory 512m -e APP_SECRET=... -e DATABASE_URL=... tasswiya-prod
+#   docker stats --no-stream --format '{{.MemUsage}}' essai   # rien n'a servi
+#   curl -s -o /dev/null localhost:8099/                      # une visite
+#   docker stats --no-stream --format '{{.MemUsage}}' essai
+#
+#   IL FAUT DEUX MESURES. Le serveur intégré préfork quatre ouvriers qui ne
+#   chargent le noyau Symfony qu'à leur PREMIÈRE requête : 11,97 Mio tant que
+#   rien n'a été servi, 27,10 Mio après une seule visite de `/`. Ici le contrôle
+#   de santé fait répondre le service tout de suite, donc c'est la seconde
+#   valeur qui le décrit. Puis 39,47 Mio après les cinq écrans, et 39,78 Mio
+#   sous 200 requêtes dont 20 en parallèle, sans OOM — ça plafonne, ça ne dérive
+#   pas. Image de 236 Mo (`docker image ls`).
+#
+#   Le port répond 200 au bout de 1,49 s ; la séquence complète — préchauffage,
+#   port, migrations (80,5 ms, 26 requêtes), jeu de démonstration, rattrapage
+#   des délais échus — tient en 2,31 s. Chez Neon il faut y ajouter le réveil
+#   de la base, qui n'est pas de ce côté-ci et n'a pas été mesuré.
+#
+# ═══ CE QUI N'EST PAS ICI, ET C'EST VOULU ═════════════════════════════════
+#
+# APP_ENV, APP_DEBUG, MESSENGER_TRANSPORT_DSN, PHP_CLI_SERVER_WORKERS et PORT
+# sont posés dans le `Dockerfile`, pas ici. Deux endroits qui décrivent le même
+# réglage, c'est un endroit de trop : le jour où ils divergent, celui qui lit
+# le dépôt et celui qui lit le tableau de bord ne parlent plus du même service.
+# L'image porte tout ce qui n'est pas secret ; ce fichier ne porte que ce qui
+# dépend de l'hébergeur.
+
+services:
+  - type: web
+    name: tasswiya
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt # la plus proche du Maroc parmi les régions gratuites
+    plan: free
+    autoDeploy: true
+
+    # LA RACINE, ET C'EST LE BON CHOIX POUR UNE RAISON PRÉCISE.
+    #
+    # `/` est l'écran « état de la pile ». Il interroge la base, mais il
+    # ATTRAPE l'échec et rend quand même 200 en affichant « injoignable »
+    # (voir `AccueilController::etatDeLaBase`). Il mesure donc « le service
+    # écoute-t-il ? » et non « toutes ses dépendances sont-elles prêtes ? ».
+    #
+    # C'est exactement ce qu'il faut ici, parce que `demarrer` ouvre le port
+    # AVANT de migrer : pendant les migrations, le contrôle de santé doit
+    # passer. Une adresse qui exigerait la base déclarerait le service mort
+    # pendant le travail qui le rend vivant, et l'hébergeur tuerait le
+    # conteneur en pleine migration — en jetant ses journaux, donc sans
+    # laisser voir la cause.
+    #
+    # Si les migrations échouent, `demarrer` tue le serveur et sort en erreur :
+    # le conteneur meurt, et Render le voit. L'échec n'est pas masqué, il est
+    # signalé par la bonne voie.
+    healthCheckPath: /
+
+    envVars:
+      # ── LA SEULE VALEUR À SAISIR À LA MAIN ────────────────────────────────
+      #
+      # La chaîne de connexion d'une base Neon gratuite (neon.tech). Jamais
+      # dans ce fichier : il est public.
+      #
+      # Prendre la version **pooler** si les deux sont proposées. Render endort
+      # le service et le réveille, ce qui rouvre des connexions à chaque fois ;
+      # sans mutualisation, la limite de connexions de l'offre gratuite se
+      # remplit et l'erreur ne désigne pas la cause.
+      #
+      # `postgresql://` est le bon préfixe — c'est celui que Doctrine attend,
+      # et c'est celui que Neon donne. Rien à réécrire.
+      #
+      # SI LE MOT DE PASSE CONTIENT @ : / ? # % OU & : ne pas utiliser cette
+      # variable. Une adresse est ANALYSÉE, et l'analyseur coupe au premier de
+      # ces caractères ; PHP envoie alors un mot de passe tronqué et le serveur
+      # répond « mot de passe refusé » alors que la valeur collée est la bonne.
+      # Poser à la place DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD :
+      # `demarrer` les encode lui-même, une seule fois, et impose sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+
+      # ── TIRÉE PAR L'HÉBERGEUR, DONC PAS À SAISIR ──────────────────────────
+      #
+      # `generateValue` plutôt que `sync: false` : Render tire la valeur
+      # lui-même et la garde. Personne ne la copie, elle ne transite par aucun
+      # presse-papiers, elle n'apparaît dans aucun fichier — alors qu'une
+      # valeur saisie à la main doit bien être produite quelque part, et c'est
+      # ce « quelque part » qui fuit. Il ne reste donc QU'UNE valeur à saisir
+      # au tableau de bord, celle qu'on ne peut pas deviner.
+      #
+      # Sans elle, `demarrer` REFUSE de démarrer : la valeur de repli du `.env`
+      # est écrite en clair dans un dépôt public, et démarrer avec elle
+      # donnerait des jetons CSRF que n'importe qui forge.
+      #
+      # NE PAS LA RÉGÉNÉRER après coup : cela invaliderait toutes les sessions
+      # en cours.
+      - key: APP_SECRET
+        generateValue: true

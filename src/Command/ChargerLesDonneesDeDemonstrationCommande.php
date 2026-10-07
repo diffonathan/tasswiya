@@ -21,6 +21,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Target;
@@ -109,9 +110,58 @@ final class ChargerLesDonneesDeDemonstrationCommande extends Command
         parent::__construct();
     }
 
+    /**
+     * L'option du DÉMARRAGE EN PRODUCTION.
+     *
+     * Sans elle, cette commande vide la base avant de semer — ce qu'il faut
+     * quand on la lance à la main, et ce qu'il ne faut SURTOUT PAS quand elle
+     * est lancée au démarrage d'un conteneur. L'hébergeur gratuit endort le
+     * service après quinze minutes sans visite et le relance à la visite
+     * suivante : un semis inconditionnel effacerait, à chaque réveil, le
+     * parcours du visiteur en cours — ses prorogations demandées, ses
+     * régularisations saisies, ses dossiers basculés. Le piège a déjà été payé
+     * sur le dépôt voisin.
+     *
+     * La règle est donc « semer si la base est vide, ne rien toucher sinon ».
+     * Et « vide » se mesure sur les dossiers, non sur les tables : les
+     * migrations créent les tables, donc une base migrée mais non semée est
+     * pleine de tables et vide de dossiers.
+     */
+    protected function configure(): void
+    {
+        $this->addOption(
+            'seulement-si-vide',
+            null,
+            InputOption::VALUE_NONE,
+            'Ne charge rien si la base contient déjà au moins un dossier, au lieu de la vider et de la resemer. '
+            .'C\'est le mode du démarrage en production.',
+        );
+    }
+
     protected function execute(InputInterface $entree, OutputInterface $sortie): int
     {
         $style = new SymfonyStyle($entree, $sortie);
+
+        // LA PORTE DU DÉMARRAGE EN PRODUCTION, et elle est fermée par défaut.
+        //
+        // Avant la remise à zéro de l'horloge, et avant le vidage : les deux
+        // sont destructeurs, et il ne faut pas les avoir faits pour découvrir
+        // ensuite qu'on n'avait pas le droit de semer.
+        if (true === $entree->getOption('seulement-si-vide')) {
+            $dossiersDejaPresents = $this->gestionnaireDEntites->getRepository(Dossier::class)->count([]);
+
+            if (0 !== $dossiersDejaPresents) {
+                $style->note(\sprintf(
+                    '%d dossier(s) déjà en base : rien n\'est chargé, et rien n\'est effacé. '
+                    .'Le parcours d\'un visiteur ne se réinitialise pas sous ses yeux.',
+                    $dossiersDejaPresents,
+                ));
+
+                return Command::SUCCESS;
+            }
+
+            $style->text('Base sans aucun dossier : le jeu de démonstration est chargé.');
+        }
 
         // D'ABORD, avant toute date : le scénario doit être reproductible.
         $this->decalage->reinitialiser();

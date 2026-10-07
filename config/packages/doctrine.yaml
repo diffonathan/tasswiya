@@ -1,6 +1,23 @@
 doctrine:
     dbal:
-        url: '%env(resolve:DATABASE_URL)%'
+        # PAS de `resolve:`, et c'est une correction, pas un oubli.
+        #
+        # `resolve:` demande à Symfony de développer les `%parametre%` trouvés
+        # DANS la valeur de la variable. Or un mot de passe encodé en porte
+        # sans le vouloir : `a@b:c` devient `a%40b%3Ac`, Symfony y lit
+        # `%40b%`, cherche un paramètre nommé « 40b » et s'arrête sur
+        # « You have requested a non-existent parameter "40b" » — un message
+        # qui ne désigne ni la base, ni le mot de passe, ni l'encodage.
+        #
+        # C'est exactement la situation que la sortie de secours
+        # DB_HOST/DB_PASSWORD de `docker/php/demarrer.sh` est censée sauver :
+        # elle `rawurlencode` le mot de passe, donc elle FABRIQUE les `%`.
+        # Avec `resolve:`, la sortie de secours tenait tant que le mot de
+        # passe n'avait qu'UN caractère réservé, et cassait à partir de deux.
+        #
+        # Rien ici n'a besoin de `resolve:` : aucune des adresses de ce dépôt
+        # ne contient de `%parametre%` à développer.
+        url: '%env(DATABASE_URL)%'
         # Le pilote ne devine pas la version du serveur : sans elle, Doctrine
         # interroge la base AU PREMIER APPEL pour la découvrir, ce qui ajoute
         # un aller-retour à la première requête de chaque processus. La version
