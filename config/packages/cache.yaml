@@ -1,0 +1,5 @@
+framework:
+    cache:
+        # Système de fichiers et non Redis : un troisième conteneur ne tiendrait
+        # pas dans les 512 Mo du déploiement (contrainte n° 2).
+        app: cache.adapter.filesystem

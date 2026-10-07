@@ -1,0 +1,103 @@
+# Le conteneur de services.
+#
+# L'autowiring fait l'essentiel : une classe de `src/` qui demande une
+# dépendance par son type la reçoit. Ce fichier n'existe donc que pour ce que
+# l'autowiring ne peut pas DEVINER.
+
+parameters:
+    # La version du BO qui fait foi, affichée sur chaque écran. Un paramètre et
+    # non une constante : le jour où une traduction française officielle
+    # paraîtra, la mention changera en un seul endroit.
+    tasswiya.source_officielle: 'Bulletin officiel n° 7478 du 29 janvier 2026 (édition générale arabe), pages 838 à 842'
+
+    # Choix d'implémentation H3 de LOI.md : UNE prolongation par défaut.
+    #
+    # C'est un paramètre PRODUIT et non une règle de droit : la loi 71.24 ne
+    # plafonne ni la durée ni le nombre des prolongations (vérifié par absence,
+    # « مرة واحدة » = 0 occurrence dans la loi et dans la circulaire). La
+    # pratique rapportée du parquet en accorde une. Le produit reflète la
+    # pratique par défaut et ne ment sur aucun des deux.
+    tasswiya.prolongations_autorisees: 1
+
+    # Choix d'implémentation H1 de LOI.md : jours calendaires, jour de l'إعذار
+    # NON compté. La loi est muette sur la nature des jours et sur les bornes.
+    tasswiya.delai_regularisation_penale_jours: 30
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # ═══════════════════════════════════════════════════════════════════════
+    #  L'HORLOGE DE DÉMONSTRATION
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    #  ⚠ CECI N'EST PAS UNE FONCTIONNALITÉ DU PRODUIT. C'est l'instrument du
+    #  moment filmé : un réglage « avancer de N jours » qui pousse l'horloge
+    #  injectée, pour qu'un spectateur voie une règle de droit s'appliquer au
+    #  seul passage du temps au lieu de la lire dans un test.
+    #
+    #  ─── POURQUOI ELLE REMPLACE `ClockInterface` DANS TOUT LE CONTENEUR ───
+    #
+    #  Si elle ne valait que pour l'écran de démonstration, la liste des
+    #  dossiers, le détail du dossier et la commande console liraient le temps
+    #  réel : l'écran dirait « délai expiré » pendant que le tableau d'à côté
+    #  afficherait « il reste 29 jours ». Un produit dont tout le métier est
+    #  une affaire de délais ne supporte pas deux horloges.
+    #
+    #  ─── L'ORDRE DES ALIAS COMPTE ─────────────────────────────────────────
+    #
+    #  Le bloc `when@test` ci-dessous est lu APRÈS celui-ci et réaffecte
+    #  `Psr\Clock\ClockInterface` à la `MockClock`. La suite de tests reste
+    #  donc maîtresse de son temps, et elle doit le rester : un test qui
+    #  dépendrait d'un fichier de décalage laissé par une démonstration
+    #  échouerait sans qu'on sache pourquoi.
+    App\Domaine\Horloge\DecalageDeDemonstration:
+        arguments:
+            # Dans `var/`, qui est un volume nommé partagé entre le serveur web
+            # et la console du conteneur : la page et le terminal doivent voir
+            # le même présent.
+            $cheminDuFichier: '%kernel.project_dir%/var/demonstration/decalage-en-jours.txt'
+
+    App\Domaine\Horloge\HorlogeDeDemonstration:
+        arguments:
+            # EXPLICITEMENT `null`, et c'est obligatoire : l'alias ci-dessous
+            # fait pointer `Psr\Clock\ClockInterface` sur CE service. Laisser
+            # l'autowiring remplir cet argument créerait une référence
+            # circulaire — le service se demanderait lui-même. `null` fait
+            # retomber le constructeur sur `Clock::get()`, c'est-à-dire sur
+            # l'horloge réelle du composant Clock.
+            $horlogeReelle: null
+
+    Psr\Clock\ClockInterface: '@App\Domaine\Horloge\HorlogeDeDemonstration'
+
+
+when@test:
+    services:
+        # LA SUBSTITUTION D'IMPLÉMENTATION, et c'est tout l'intérêt de
+        # ClockInterface.
+        #
+        # En test, l'horloge réelle est remplacée par une horloge figée. Le
+        # code applicatif ne change pas d'une ligne : il demande
+        # `Psr\Clock\ClockInterface`, le conteneur décide laquelle il reçoit.
+        # Un produit qui ne parle que de délais ne peut pas se tester avec
+        # `new DateTimeImmutable()` — le test passerait aujourd'hui et
+        # échouerait dans trente et un jours.
+        Symfony\Component\Clock\MockClock:
+            arguments:
+                # Lendemain de l'entrée en vigueur de la loi 71.24.
+                $now: '2026-01-30 09:00:00'
+                $timezone: 'Africa/Casablanca'
+
+        # Les deux alias, parce que le code peut demander l'un ou l'autre et
+        # que n'en remplacer qu'un laisserait une horloge réelle dans la moitié
+        # des services — le pire des cas, celui qui passe la plupart du temps.
+        Psr\Clock\ClockInterface: '@Symfony\Component\Clock\MockClock'
+        Symfony\Component\Clock\ClockInterface: '@Symfony\Component\Clock\MockClock'

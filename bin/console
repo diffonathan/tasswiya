@@ -1,0 +1,33 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use App\Kernel;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+
+// Le message explicite plutôt que « failed to open stream ». `vendor/` vit
+// dans un volume Docker et n'existe PAS sur le poste : qui lance cette
+// commande hors du conteneur doit lire pourquoi, et non chercher un fichier
+// manquant.
+if (!is_file(dirname(__DIR__).'/vendor/autoload_runtime.php')) {
+    fwrite(\STDERR, <<<TXT
+
+        Les dépendances sont absentes.
+
+        `vendor/` vit dans un volume Docker, pas sur le poste : c'est délibéré
+        (voir docker-compose.yml). Lancez la commande DANS le conteneur :
+
+            docker compose exec php bin/console …
+
+
+        TXT);
+
+    exit(1);
+}
+
+require_once dirname(__DIR__).'/vendor/autoload_runtime.php';
+
+return static function (array $context): Application {
+    return new Application(new Kernel($context['APP_ENV'], (bool) $context['APP_DEBUG']));
+};

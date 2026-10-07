@@ -1,0 +1,703 @@
+#  ╔═══════════════════════════════════════════════════════════════════════╗
+#  ║  TASSWIYA — LES DEUX MACHINES À ÉTATS                                 ║
+#  ╚═══════════════════════════════════════════════════════════════════════╝
+#
+#  Ce fichier est la traduction en configuration du dossier de règles `LOI.md`,
+#  à la racine du dépôt. Qui le lit dans six mois doit pouvoir répondre à deux
+#  questions sur n'importe quelle ligne : D'OÙ VIENT CETTE RÈGLE, et À QUEL
+#  POINT EST-ELLE SÛRE. Chaque garde porte donc son article et son degré.
+#
+#  ─── AVERTISSEMENT, qui vaut aussi pour ce fichier ─────────────────────────
+#
+#  CECI N'EST PAS UN CONSEIL JURIDIQUE. Ce graphe sert à écrire du logiciel,
+#  pas à décider d'un dossier réel. Pour une situation réelle, il faut un
+#  avocat.
+#
+#  LA SEULE VERSION OFFICIELLE DU TEXTE EST EN ARABE. Il n'existe à ce jour
+#  aucune traduction française officielle de la loi n° 71.24 : la série
+#  française du Bulletin officiel passe du n° 7474 au n° 7480, et aucun des
+#  numéros français de 2026 jusqu'au n° 7540 ne contient « 71.24 », « 1.26.03 »
+#  ni « 15.95 ». Tout énoncé français de ce fichier est donc une TRADUCTION DE
+#  TRAVAIL, non opposable, et les verbatim arabes sont donnés là où le mot
+#  compte.
+#
+#  ─── POURQUOI `state_machine` ET NON `workflow` ────────────────────────────
+#
+#  Un `workflow` autorise plusieurs jetons simultanés : un sujet peut être dans
+#  plusieurs places à la fois. Une `state_machine` n'en autorise qu'un.
+#
+#  Un dossier occupe une POSITION PROCÉDURALE, et une seule. Il ne peut pas
+#  être à la fois « délai en cours » et « poursuite engagée » : l'article 325
+#  al. 6 fait justement de l'écédar et de son délai une condition PRÉALABLE de
+#  la poursuite. Autoriser les deux places ensemble rendrait exprimable un état
+#  que le droit exclut, et une machine à états qui peut représenter
+#  l'impossible ne protège plus de rien.
+#
+#  ─── POURQUOI DEUX MACHINES ET NON UNE ─────────────────────────────────────
+#
+#  `LOI.md` § 2 recense CINQ horloges, dont trois bancaires qui courent en
+#  parallèle du circuit pénal. Un dossier peut être pénalement éteint et le
+#  compte encore interdit d'émettre ; l'interdiction peut être purgée et la
+#  poursuite continuer. Les mettre dans une machine unique imposerait un
+#  produit cartésien d'états — « délai expiré et interdit », « délai expiré et
+#  purgé » — c'est-à-dire la perte de la lisibilité pour laquelle on a choisi
+#  `state_machine`.
+#
+#  Deux machines, deux agrégats, deux verrous optimistes : c'est aussi ce qui
+#  permet au greffe et à la banque d'écrire sans se marcher dessus.
+#
+#  ─── OÙ SONT LES AUTRES GARDES, ET POURQUOI PAS ICI ────────────────────────
+#
+#  Le langage d'expressions du composant Workflow donne accès à `subject`, à
+#  `is_granted()` et à `is_valid()`. IL NE DONNE PAS ACCÈS À L'HORLOGE. Pour
+#  écrire `subject.delaiExpire()` ci-dessous, il faudrait que l'entité appelle
+#  elle-même `new \DateTimeImmutable()` — exactement ce que ce projet refuse,
+#  puisque c'est ce qui rend un délai intestable et la démonstration
+#  impossible.
+#
+#  Le partage est donc :
+#    • ICI, tout ce qui est un ÉTAT DU SUJET — accord enregistré, décision du
+#      parquet, amende payée, cas pénal, lien familial, quota. Expressions
+#      pures, lisibles par qui ne connaît pas le code ;
+#    • dans `src/Workflow/EcouteurDeGardesTemporelles.php`, tout ce qui demande
+#      à savoir QUEL JOUR ON EST. L'horloge y est injectée
+#      (`Psr\Clock\ClockInterface`), donc substituable : `MockClock` en test,
+#      horloge de démonstration devant la caméra.
+#
+#  ⚠ PIÈGE À CONNAÎTRE : une garde qui appelle `is_granted()` exige un jeton de
+#  sécurité. Elle lève une exception si elle est évaluée hors requête — en
+#  ligne de commande, dans un consommateur Messenger ou dans le Scheduler.
+#  C'est pourquoi `expirer_delai`, la seule transition que le Scheduler pousse,
+#  N'A AUCUNE garde ici : la sienne est entièrement dans l'écouteur.
+#
+#  ─── LE MOMENT QUE L'ON FILME ──────────────────────────────────────────────
+#
+#  On pousse l'horloge de démonstration de trente et un jours. Le dossier
+#  bascule seul en `delai_expire`, par la transition `expirer_delai` que rien
+#  d'autre que le temps ne peut ouvrir. Le bouton « proroger » devient gris, et
+#  son info-bulle dit la vérité — qui n'est PAS celle que le brief du projet
+#  annonçait :
+#
+#      « Limite de CE LOGICIEL : une prorogation. La loi 71-24 (art. 325 al. 8)
+#        ne limite PAS le nombre de prorogations ; elle exige une durée au moins
+#        égale au délai initial, une décision du ministère public et l'accord du
+#        bénéficiaire. »
+#
+#  Voir `LOI.md` § 4.1 : la règle « prolongeable une seule fois » que répètent
+#  la presse et les notes de cabinet N'EXISTE PAS dans le texte. L'arbitrage et
+#  la commande qui le prouve sont dans le commentaire de `proroger_delai`.
+
+framework:
+    workflows:
+
+        # ╔══════════════════════════════════════════════════════════════════╗
+        # ║  MACHINE 1 — LE DOSSIER PÉNAL                                    ║
+        # ╚══════════════════════════════════════════════════════════════════╝
+        dossier_penal:
+            type: state_machine
+
+            # `method` plutôt que `single_state` : le marquage vit dans la
+            # colonne `etat` du dossier, lue par `getEtat()` et écrite par
+            # `setEtat()`. Pas de table de marquage séparée, donc l'état part
+            # dans la même transaction que les faits qui l'ont produit — et le
+            # verrou optimiste `#[ORM\Version]` du dossier le protège.
+            marking_store:
+                type: method
+                property: etat
+
+            supports:
+                - App\Entity\Dossier
+
+            initial_marking: cheque_emis
+
+            # ─── LES PLACES ────────────────────────────────────────────────
+            #
+            # Quatorze places pour une procédure pénale en quatre temps
+            # (banque, parquet, jugement, extinction). Chacune correspond à une
+            # position que le texte nomme ; aucune n'est là pour l'ergonomie.
+            places:
+                # H1 court : 20 jours (chèque émis et payable au Maroc) ou
+                # 60 jours (émis à l'étranger), depuis la DATE D'ÉMISSION
+                # PORTÉE SUR LE CHÈQUE. Art. 268, que la loi 71.24 ne modifie
+                # pas — donc lu dans l'édition officielle du Code, et établi.
+                - cheque_emis
+
+                # Incident de paiement constaté et certificat de refus remis
+                # au porteur (art. 309, non modifié). Les horloges bancaires
+                # H2, H4 et H5 partent d'ici ou de l'injonction.
+                - impaye_constate
+
+                - plainte_deposee
+
+                # Tireur introuvable. L'article 325 N'ORGANISE PAS ce cas.
+                # Cette place existe pour une raison précise : ici, H3 NE COURT
+                # PAS, puisqu'elle part de la date de l'écédar et qu'aucun
+                # écédar n'a pu être notifié. Degré : CHOIX_PRODUIT
+                # (`LOI.md` § 6 H5). La pratique rapportée — avis de recherche,
+                # pas de garde à vue à l'interpellation, audition valant
+                # écédar — est de la DOCTRINE DE PRATICIEN (juge Saïd
+                # Bouttouil), à afficher comme telle et jamais comme la loi.
+                - convocation_sans_effet
+
+                # ★ LE POINT ZÉRO DE L'HORLOGE PRINCIPALE.
+                # Écédar notifié sous forme d'interrogatoire par un officier de
+                # police judiciaire sur instruction du parquet (art. 325 al. 7).
+                # Les 30 jours courent « من تاريخ هذا الإعذار » — à compter de
+                # la date de CET écédar (art. 325 al. 6, verbatim). Ni la
+                # présentation, ni le rejet, ni la plainte, ni l'injonction
+                # bancaire. Et ce n'est pas un délai de grâce : contrôle
+                # judiciaire obligatoire, bracelet électronique compris.
+                - ecedar_notifie
+
+                # Délai prorogé par décision du ministère public après accord
+                # du bénéficiaire (art. 325 al. 8). Le contrôle judiciaire
+                # CONTINUE — le texte le dit dans le même alinéa.
+                - delai_prolonge
+
+                # ★ L'ÉTAT QUE LA DÉMONSTRATION ATTEINT AU SEUL PASSAGE DU
+                # TEMPS. Aucune action humaine ne mène ici.
+                - delai_expire
+
+                - poursuite_engagee
+                - condamnation_definitive
+
+                # Transaction ou désistement acté. NON terminal, et c'est tout
+                # son intérêt : l'art. 325 al. 1 exige DEUX conditions
+                # cumulatives, et un dossier désisté dont l'amende de 2 % n'est
+                # pas payée reste ici.
+                - desistement_ou_transaction_acte
+
+                - action_publique_eteinte
+                - peine_effacee
+                - rehabilitation_ouverte
+
+                # « ni infraction ni peine » (لا جريمة ولا عقوبة),
+                # art. 325 al. 4 et 5. Terminal AU PÉNAL seulement : l'action
+                # civile de la partie lésée reste ouverte, et l'écran doit le
+                # dire.
+                - justification_familiale_retenue
+
+            transitions:
+
+                # ───────────────────────────────────────────────────────────
+                #  LE CIRCUIT BANCAIRE, réduit à ce qui touche la procédure
+                # ───────────────────────────────────────────────────────────
+
+                constater_impaye:
+                    from: cheque_emis
+                    to: impaye_constate
+                    # Art. 309 (non modifié) : la banque qui refuse le paiement
+                    # DOIT remettre au porteur un certificat de refus. Un
+                    # incident sans certificat est un dossier qu'on ne peut pas
+                    # instruire.
+                    #
+                    # ⚠ Le CONTENU de ce certificat est INCERTAIN : son modèle
+                    # est fixé par la circulaire BAM n° 5/G/97 du 18/09/1997,
+                    # dont le PDF a été récupéré mais dont le flux n'est pas
+                    # extractible. La question est directement opératoire — le
+                    # certificat chiffre-t-il le manquant ? — parce que
+                    # l'assiette des 2 % et celle de l'art. 314 en dépendent.
+                    # L'écran doit porter cette incertitude.
+                    # Degré : ÉTABLI pour l'obligation, INCERTAIN pour le
+                    # contenu. `LOI.md` § 3.A3 et § 7 point 13.
+                    guard: "subject.certificatDeRefusEnregistre()"
+
+                # ───────────────────────────────────────────────────────────
+                #  LE CIRCUIT PÉNAL
+                # ───────────────────────────────────────────────────────────
+
+                deposer_plainte:
+                    from: impaye_constate
+                    to: plainte_deposee
+                    # Aucune garde. Le droit de porter plainte n'est pas
+                    # conditionné par ce texte, et en inventer une condition
+                    # serait fermer une porte que la loi laisse ouverte.
+
+                # CAUSE DE JUSTIFICATION FAMILIALE — art. 325 al. 4 et 5.
+                #
+                # « لا جريمة ولا عقوبة » : ni infraction ni peine. Trois
+                # restrictions que la presse et les notes de cabinet effacent,
+                # et que les gardes font respecter :
+                #   1. le POINT 1 de l'art. 316 SEULEMENT (omission de
+                #      provision) — ni l'opposition irrégulière, ni le faux,
+                #      ni le chèque de garantie ;
+                #   2. époux, ascendants ou descendants AU PREMIER DEGRÉ
+                #      seulement — un frère, un oncle, un petit-fils ne sont
+                #      pas dans le texte ;
+                #   3. pour les époux, la cause joue encore PENDANT LES QUATRE
+                #      ANNÉES suivant la dissolution du mariage. Règle que,
+                #      d'après le dépouillement de `LOI.md`, aucune source
+                #      secondaire ne mentionne.
+                #
+                # La troisième restriction est temporelle, donc sa garde est
+                # dans l'écouteur — et sa référence n'est pas « aujourd'hui »
+                # mais LA DATE DES FAITS : la cause de justification joue ou ne
+                # joue pas au moment de l'infraction, et la mesurer depuis le
+                # jour de la consultation ferait disparaître une justification
+                # acquise par le simple écoulement de l'instruction.
+                #
+                # Degré : ÉTABLI. `LOI.md` § 3.B9 et § 4.11.
+                retenir_justification_familiale:
+                    from: plainte_deposee
+                    to: justification_familiale_retenue
+                    guard: >
+                        subject.justificationFamilialeOuverteParLeCas()
+                        and subject.lienFamilialDansLeChamp()
+                        and subject.dateDissolutionConnueSiNecessaire()
+
+                # TIREUR INTROUVABLE — et c'est un trou du texte, pas une règle.
+                #
+                # L'article 325 ne l'organise pas. Cette transition existe pour
+                # que l'horloge H3 ne parte PAS : un délai de trente jours ne
+                # peut pas courir contre un homme qu'on n'a pas entendu,
+                # puisque le délai part de son interrogatoire.
+                # Degré : CHOIX_PRODUIT. `LOI.md` § 4.15 et § 6 H5.
+                constater_convocation_sans_effet:
+                    from: plainte_deposee
+                    to: convocation_sans_effet
+
+                # ★ LA TRANSITION QUI FAIT PARTIR L'HORLOGE DU PROJET.
+                #
+                # Deux gardes, et toutes deux dans le texte :
+                #
+                #  1. `ecedarNotifieAvecProcesVerbal()` — l'écédar prend la
+                #     forme d'un INTERROGATOIRE par un officier de police
+                #     judiciaire sur instruction du parquet (art. 325 al. 7,
+                #     « ويتم الإعذار المذكور في شكل استجواب »). Il n'y a NI
+                #     acte d'huissier NI lettre recommandée dans ce dispositif :
+                #     la preuve de la date de départ est le PROCÈS-VERBAL
+                #     D'AUDITION, et rien d'autre. Une date saisie sans pièce
+                #     ferait partir l'horloge principale sur un fait non établi.
+                #
+                #  2. `controleJudiciaireEnPlace()` — l'art. 325 al. 7 est
+                #     rédigé à l'IMPÉRATIF : le tireur est soumis à « une ou
+                #     plusieurs » mesures de contrôle judiciaire, bracelet
+                #     électronique compris
+                #     (« لواحد أو أكثر من تدابير المراقبة القضائية بما فيها
+                #     السوار الإلكتروني »). Les trente jours NE SONT PAS un
+                #     délai de grâce, et un écran qui les annonce sans afficher
+                #     la mesure décrit mal la situation de son propre
+                #     utilisateur débiteur.
+                #
+                #     ⚠ La liste des mesures renvoie, d'après la circulaire du
+                #     parquet, à l'article 161 du Code de procédure pénale.
+                #     Ce renvoi est de degré PROBABLE — copie tierce OCRisée —
+                #     et la circulaire écrit « l'UNE des mesures » là où la loi
+                #     écrit « une ou plusieurs ». À afficher comme
+                #     « instruction du ministère public », jamais comme la loi.
+                #
+                # `is_granted` : le greffe seul notifie. Le parquet n'est pas
+                # un utilisateur de ce logiciel — sa décision entre comme une
+                # pièce, pas comme un acte.
+                #
+                # Degré : ÉTABLI. `LOI.md` § 3.B1 à B4.
+                notifier_ecedar:
+                    from: [plainte_deposee, convocation_sans_effet]
+                    to: ecedar_notifie
+                    guard: >
+                        subject.ecedarNotifieAvecProcesVerbal()
+                        and subject.controleJudiciaireEnPlace()
+                        and is_granted('DOSSIER_NOTIFIER_ECEDAR', subject)
+
+                # ╔══════════════════════════════════════════════════════════╗
+                # ║  ★★★  LA PROROGATION — LA TRANSITION LA PLUS            ║
+                # ║       IMPORTANTE DU PROJET, ET CELLE QUE LE BRIEF       ║
+                # ║       AVAIT FAUSSE.                                     ║
+                # ╚══════════════════════════════════════════════════════════╝
+                #
+                # ─── CE QUE LE TEXTE DIT, VERBATIM (art. 325 al. 8) ────────
+                #
+                #   « يمكن للنيابة العامة تمديد الأجل، المنصوص عليه في الفقرة
+                #     السادسة أعلاه، لمدة مماثلة أو أكثر، بعد موافقة المستفيد،
+                #     مع استمرار مفعول تدبير المراقبة القضائية المتخذ في حقه
+                #     بما فيه السوار الإلكتروني »
+                #
+                #   Traduction de travail : « Le ministère public peut proroger
+                #   le délai prévu à l'alinéa sixième ci-dessus, pour une durée
+                #   égale ou supérieure, après accord du bénéficiaire, le
+                #   contrôle judiciaire pris à son encontre continuant de
+                #   produire effet, bracelet électronique compris. »
+                #
+                # ─── QUATRE CHOSES, TOUTES DANS CE SEUL ALINÉA ─────────────
+                #
+                #  1. La DÉCISION APPARTIENT AU MINISTÈRE PUBLIC
+                #     (« يمكن للنيابة العامة »). Le brief du projet l'avait
+                #     omise, et c'est l'omission la plus structurante : la
+                #     prorogation n'est PAS un accord entre créancier et
+                #     débiteur. Une prorogation sans décision du parquet
+                #     enregistrée n'est pas une prorogation.
+                #
+                #  2. L'ACCORD DU BÉNÉFICIAIRE EST UNE CONDITION, pas le
+                #     déclencheur. Les deux conditions sont CUMULATIVES ET
+                #     ASYMÉTRIQUES : le parquet peut refuser MÊME SI le
+                #     bénéficiaire accepte, et l'accord du bénéficiaire est
+                #     sans effet s'il refuse.
+                #
+                #  3. La durée est « ÉGALE OU SUPÉRIEURE » au délai initial :
+                #     c'est un PLANCHER de 30 jours, et il n'y a AUCUN PLAFOND.
+                #     La garde refuse donc une durée trop COURTE, jamais une
+                #     durée trop longue. Les « 60 jours maximum » de la presse
+                #     ne sont écrits nulle part.
+                #
+                #  4. ★ AUCUNE LIMITE DE NOMBRE DE PROROGATIONS.
+                #
+                # ─── L'ARBITRAGE, ET LA COMMANDE QUI LE PROUVE ─────────────
+                #
+                # Le brief de ce projet, cabinetkrari.ma, lodj.ma,
+                # avocat-jawhari.com et l'essentiel de la presse écrivent
+                # « 30 jours, prolongeables UNE SEULE FOIS ». Cette règle
+                # N'EXISTE PAS. La vérification est une ABSENCE, et elle est
+                # reproductible depuis la racine du dépôt :
+                #
+                #   grep -c "مرة واحدة"      docs/sources/loi_71-24_extrait_BO7478.txt       # 0
+                #   grep -c "مرة واحدة"      docs/sources/circulaire_parquet_2-2026_OCR.txt  # 0
+                #   grep -c "مماثلة أو أكثر" docs/sources/loi_71-24_extrait_BO7478.txt       # 1
+                #
+                # ⚠ Piège d'extraction à connaître avant de lancer un grep sur
+                # ces fichiers : l'extraction du BO 7478 rend `ثلاثين` en
+                # `ثالثين` et `لا` en `ال`. Chercher la bonne graphie renvoie
+                # zéro à tort.
+                #
+                # Trois raisons cumulatives de croire le Bulletin officiel
+                # contre la presse :
+                #   • c'est le texte, lu directement, et les mots n'y sont pas ;
+                #   • l'Observatoire national de la criminalité, sur le site du
+                #     ministère de la Justice, écrit indépendamment « pour une
+                #     durée équivalente ou plus après accord du bénéficiaire » —
+                #     une source officielle confirme le BO CONTRE la presse ;
+                #   • la circulaire du parquet elle-même ne dit pas « une seule
+                #     fois » : elle écrit « ويمكن تمديد الأجل المذكور إلى 30
+                #     يوما إضافية ». C'est une doctrine d'application, et une
+                #     circulaire ne peut pas réduire ce que la loi ouvre.
+                #
+                # ─── CONSÉQUENCE SUR LA GARDE ──────────────────────────────
+                #
+                # La garde RESTE — c'est le moment filmé — mais elle CHANGE DE
+                # NATURE : c'est un PARAMÈTRE PRODUIT, pas une règle de droit.
+                # D'où son nom, `quotaProlongationsEpuise()`, et non
+                # `prolongationDejaJoueeUneFois()`. Valeur par défaut 1,
+                # paramétrable, persistée par dossier, degré CHOIX_PRODUIT.
+                #
+                # L'info-bulle prévue par le brief — « déjà prolongé une fois,
+                # loi 71-24 » — attribuerait à la loi 71-24 une règle que la
+                # loi 71-24 ne porte pas. Le libellé juste est dans
+                # `src/Workflow/CatalogueDesBlocages.php`.
+                #
+                # Et à côté d'elle, DEUX GARDES VRAIMENT LÉGALES qui méritent
+                # autant la caméra : l'accord du bénéficiaire et la décision du
+                # parquet.
+                #
+                # `LOI.md` § 3.B5, § 4.1, § 4.12 et § 6 H3.
+                proroger_delai:
+                    from: [ecedar_notifie, delai_prolonge]
+                    to: delai_prolonge
+                    guard: >
+                        subject.decisionParquetEnregistree()
+                        and subject.accordBeneficiaireEnregistre()
+                        and subject.beneficiaireDisponible()
+                        and subject.dureeProlongationDemandeeAuMoinsEgaleAuDelaiInitial()
+                        and not subject.quotaProlongationsEpuise()
+                        and is_granted('DOSSIER_ACCORDER_PROLONGATION', subject)
+                    # ⚠ `beneficiaireDisponible()` est un ANGLE MORT DU TEXTE,
+                    # pas une règle : la loi exige l'accord du bénéficiaire
+                    # sans dire comment procéder s'il est injoignable, décédé
+                    # ou pluriel. Ce logiciel BLOQUE ET LE DIT, au lieu de
+                    # présumer un accord ou de refuser en silence. Degré
+                    # INCERTAIN, donc le produit ALERTE au lieu de conclure.
+                    # `LOI.md` § 4.15 et § 6 H4.
+                    #
+                    # ⚠ Une garde temporelle complète celles-ci dans
+                    # l'écouteur : on ne proroge pas un délai déjà expiré.
+                    # Que le parquet puisse proroger rétroactivement n'est
+                    # tranché par personne — aucune jurisprudence n'est publiée
+                    # sur le nouvel article 325, et ce logiciel refuse plutôt
+                    # que d'inventer la réponse.
+
+                # ╔══════════════════════════════════════════════════════════╗
+                # ║  ★★★  LA TRANSITION QUE L'ON FILME.                     ║
+                # ╚══════════════════════════════════════════════════════════╝
+                #
+                # AUCUNE GARDE ICI, ET C'EST VOULU, pour deux raisons :
+                #
+                #  1. La seule condition est TEMPORELLE, et le langage
+                #     d'expressions n'a pas accès à l'horloge. La garde est
+                #     donc entière dans `EcouteurDeGardesTemporelles`, qui
+                #     reçoit `Psr\Clock\ClockInterface` par injection. Pousser
+                #     l'horloge de 31 jours suffit à ouvrir cette transition ;
+                #     29 jours ne suffisent pas, et c'est le test qui le dit.
+                #
+                #  2. Cette transition est poussée par le Scheduler, donc HORS
+                #     REQUÊTE. Une garde `is_granted()` lèverait une exception
+                #     faute de jeton de sécurité. Le piège est connu et évité
+                #     exprès.
+                #
+                # Aucun bouton, aucun rôle, aucune requête forgée ne peut faire
+                # expirer un délai avant son terme : la seule chose qui ouvre
+                # cette transition est le passage du temps. Le spectateur ne
+                # voit pas un formulaire se remplir, il voit une règle de droit
+                # s'appliquer.
+                #
+                # Art. 325 al. 6 — degré ÉTABLI.
+                expirer_delai:
+                    from: [ecedar_notifie, delai_prolonge]
+                    to: delai_expire
+
+                # L'ÉCÉDAR EST UNE CONDITION PRÉALABLE OBLIGATOIRE DE LA
+                # POURSUITE : « يجب أن يسبق المتابعة إعذار ساحب الشيك » — les
+                # poursuites DOIVENT être précédées d'une mise en demeure du
+                # tireur (art. 325 al. 6).
+                #
+                # C'est pour cela que cette transition ne part QUE de
+                # `delai_expire` : l'exigence est structurelle, portée par le
+                # graphe lui-même, et pas seulement par une garde. On ne peut
+                # pas atteindre `poursuite_engagee` sans être passé par
+                # `ecedar_notifie`. La garde redouble l'exigence au cas où une
+                # transition future ouvrirait un autre chemin.
+                #
+                # Degré : ÉTABLI. `LOI.md` § 3.B1.
+                engager_poursuite:
+                    from: delai_expire
+                    to: poursuite_engagee
+                    guard: "subject.ecedarNotifieAvecProcesVerbal()"
+
+                prononcer_condamnation_definitive:
+                    from: poursuite_engagee
+                    to: condamnation_definitive
+                    # ⚠ Note pour l'écran, et c'est un durcissement au milieu
+                    # d'une réforme présentée comme un allègement : AUCUNE PEINE
+                    # ALTERNATIVE ne peut être prononcée pour les délits de
+                    # l'art. 316 (art. 325 al. 11, « لا يحكم بالعقوبات البديلة
+                    # في الجنح المنصوص عليها في المادة 316 أعلاه »). La
+                    # circulaire du parquet ordonne même d'appeler les jugements
+                    # qui en prononceraient. Degré : ÉTABLI.
+
+                # ───────────────────────────────────────────────────────────
+                #  LES TRANSITIONS IRRÉVERSIBLES, qui donnent au graphe sa
+                #  forme — art. 325 al. 10 :
+                #    « لا يجوز الرجوع في الصلح أو التنازل حسب هذه المادة، إلا
+                #      في الأحوال التي يجيز القانون الطعن فيه »
+                #  On ne peut revenir sur la transaction ni sur le désistement,
+                #  sauf dans les cas où la loi en permet la contestation — ce
+                #  que ce logiciel ne tranche pas et n'ouvre donc pas.
+                #  AUCUNE transition ne part de `desistement_ou_transaction_acte`
+                #  vers un état antérieur. L'interface doit le dire AVANT, pas
+                #  après. Degré : ÉTABLI. `LOI.md` § 3.B11.
+                # ───────────────────────────────────────────────────────────
+
+                # `condamnation_definitive` n'est PAS dans ce `from` : après
+                # jugement, le désistement ne ramène pas le dossier en arrière,
+                # il ouvre `effacer_peine` — et à un prix différent, puisque
+                # deux amendes se cumulent alors (art. 325 al. 2).
+                acter_desistement:
+                    from:
+                        - impaye_constate
+                        - plainte_deposee
+                        - convocation_sans_effet
+                        - ecedar_notifie
+                        - delai_prolonge
+                        - delai_expire
+                        - poursuite_engagee
+                    to: desistement_ou_transaction_acte
+                    # Sa plainte, son désistement : le bénéficiaire seul.
+                    guard: "is_granted('DOSSIER_ENREGISTRER_DESISTEMENT', subject)"
+
+                acter_transaction:
+                    from:
+                        - impaye_constate
+                        - plainte_deposee
+                        - convocation_sans_effet
+                        - ecedar_notifie
+                        - delai_prolonge
+                        - delai_expire
+                        - poursuite_engagee
+                    to: desistement_ou_transaction_acte
+                    guard: "is_granted('DOSSIER_ENREGISTRER_DESISTEMENT', subject)"
+
+                # ★ LES DEUX CONDITIONS CUMULATIVES — art. 325 al. 1, verbatim :
+                #
+                #   « يترتب عن الأداء أو التنازل عن الشكاية … عدم تحريك الدعوى
+                #     العمومية أو سقوطها حسب الحالة وذلك بعد أدائه غرامة تحدد
+                #     قيمتها في اثنين (2%) بالمائة من مبلغ الشيك أو الخصاص »
+                #
+                # La faute la plus facile à commettre, et la presse la commet :
+                # elle résume cet alinéa en « payer ou se désister suffit ».
+                # NON. Le paiement ou le désistement, ET l'amende de 2 %. Sans
+                # l'amende, la poursuite subsiste.
+                #
+                # Trois précisions qui changent le modèle de données :
+                #
+                #  • L'ASSIETTE est « du montant du chèque OU DU MANQUANT »
+                #    (الخصاص). Mais en pratique, l'attestation bancaire ne
+                #    CHIFFRE jamais le découvert — juge Saïd Bouttouil, source
+                #    unique mais signée et spécialisée, degré PROBABLE. Donc le
+                #    champ « montant du manquant » sera VIDE dans la majorité
+                #    des cas, et le produit ne calcule RIEN plutôt que de
+                #    retomber sur le montant du chèque, ce qui SURESTIMERAIT
+                #    l'amende. `LOI.md` § 4.14 et § 6 H6.
+                #    Cette incertitude n'empêche pas la transition : c'est le
+                #    TRIBUNAL qui fixe l'amende, pas ce logiciel. Ce qui est
+                #    refusé, c'est d'AFFICHER UN MONTANT.
+                #
+                #  • C'est une AMENDE (غرامة) versée à la caisse du tribunal,
+                #    PAS une indemnité au bénéficiaire. L'indemnisation du
+                #    bénéficiaire est un objet séparé : la consignation de
+                #    l'art. 325 al. 9, qui lui laisse son action civile. Les
+                #    confondre produirait un écran qui promet au créancier un
+                #    argent qui va au tribunal.
+                #
+                #  • Ce régime est LIMITÉ AU POINT 1 DE L'ART. 316 : l'alinéa
+                #    désigne nommément « ساحب الشيك الذي أغفل الحفاظ على
+                #    المؤونة أو تكوينها ». Il ne couvre NI l'opposition
+                #    irrégulière, NI le faux, NI le chèque de garantie.
+                #
+                # ⚠ Et il n'y a NI PLANCHER NI PLAFOND sur ces 2 %. Les 500 DH
+                # et 50 000 DH que l'on voit cités appartiennent à la pénalité
+                # BANCAIRE de l'art. 314, qui est une autre amende.
+                # `LOI.md` § 4.3 et § 4.4.
+                #
+                # ⚠ Ne jamais écrire « 2 % contre 25 % auparavant ». Les 25 %
+                # de l'ancien art. 316 étaient le PLANCHER DE L'AMENDE PÉNALE,
+                # pas un taux de régularisation : les deux chiffres ne portent
+                # pas sur la même chose. `LOI.md` § 4.2.
+                #
+                # Degré : ÉTABLI. `LOI.md` § 3.B6.
+                eteindre_action_publique:
+                    from: desistement_ou_transaction_acte
+                    to: action_publique_eteinte
+                    guard: >
+                        subject.extinctionOuverteParLeCasPenal()
+                        and subject.paiementOuDesistementAcquis()
+                        and subject.amendeDeuxPourCentPayee()
+
+                # ★ LE MONTANT DÛ DÉPEND DE L'ÉTAT DU DOSSIER, PAS D'UNE
+                # CONSTANTE — et c'est exactement pourquoi c'est une transition
+                # et non un calcul.
+                #
+                # Art. 325 al. 2 : si le paiement ou le désistement intervient
+                # APRÈS une décision passée en force de chose jugée, il met fin
+                # à l'exécution de la peine privative de liberté et EFFACE SES
+                # EFFETS — mais seulement APRÈS paiement de l'amende prononcée
+                # au titre de l'art. 316 al. 1 (5 000 à 20 000 DH).
+                #
+                # Donc : AVANT condamnation, les 2 % suffisent. APRÈS
+                # condamnation, DEUX AMENDES SE CUMULENT. Coder cela comme un
+                # montant unique serait une source d'erreur garantie.
+                #
+                # ⚠ Limite relevée par le juge Bouttouil : cet effet ne vaudrait
+                # que pour le délit d'omission de provision et non pour les
+                # autres délits de l'art. 316. Degré PROBABLE (praticien, mais
+                # cohérent avec le libellé de l'alinéa 1, qui désigne nommément
+                # ce tireur). La garde l'applique, et l'écran doit l'attribuer
+                # à la DOCTRINE et non à la loi.
+                #
+                # `LOI.md` § 3.B7.
+                # Le `from` est VOLONTAIREMENT limité à `condamnation_definitive`,
+                # et non élargi à `desistement_ou_transaction_acte` : une fois
+                # dans cette dernière place, le graphe ne dit plus si une
+                # condamnation est intervenue, et les deux régimes ne coûtent
+                # pas la même chose au tireur. Le désistement postérieur à la
+                # condamnation entre donc comme une PIÈCE au journal — que
+                # `paiementOuDesistementAcquis()` lit — et non comme un
+                # changement de place.
+                effacer_peine:
+                    from: condamnation_definitive
+                    to: peine_effacee
+                    guard: >
+                        subject.extinctionOuverteParLeCasPenal()
+                        and subject.paiementOuDesistementAcquis()
+                        and subject.amendeArticle316Payee()
+
+                # Réhabilitation judiciaire (رد الاعتبار القضائي) : ouverte
+                # « en tout état de cause » dès le paiement DES DEUX amendes
+                # visées aux deux alinéas précédents (art. 325 al. 3).
+                # Degré : ÉTABLI. `LOI.md` § 3.B8.
+                ouvrir_rehabilitation:
+                    from: peine_effacee
+                    to: rehabilitation_ouverte
+                    guard: "subject.lesDeuxAmendesPayees()"
+
+        # ╔══════════════════════════════════════════════════════════════════╗
+        # ║  MACHINE 2 — L'INTERDICTION BANCAIRE D'ÉMETTRE                   ║
+        # ╚══════════════════════════════════════════════════════════════════╝
+        #
+        # Trois places, deux transitions, et elle vaut la peine d'exister :
+        # elle porte la troisième irréversibilité du projet, celle qui « purge
+        # tous les effets », et elle montre pourquoi les cinq horloges de
+        # `LOI.md` § 2 ne pouvaient pas tenir dans une seule machine.
+        #
+        # ⚠ À NE PAS CONFONDRE avec l'interdiction JUDICIAIRE de l'art. 317,
+        # que le tribunal prononce, dont la durée est ÉLIDÉE au Bulletin
+        # officiel et vaudrait 1 à 5 ans d'après l'ancien article — degré
+        # PROBABLE. Deux interdictions distinctes, qui durent toutes deux cinq
+        # ans au maximum, ce qui invite précisément à les confondre. Celle de
+        # l'art. 317 n'est pas modélisée.
+        interdiction_bancaire:
+            type: state_machine
+
+            marking_store:
+                type: method
+                property: etat
+
+            supports:
+                - App\Entity\InterdictionBancaire
+
+            initial_marking: active
+
+            places:
+                # H5 court : CINQ ANS à compter de l'incident de paiement
+                # (art. 312 et 313 nouveaux, « خمس سنوات »), contre DIX ANS
+                # dans l'ancien code (« عشر سنوات »). La division par deux est
+                # établie sur DEUX TEXTES PRIMAIRES, et non sur une source
+                # secondaire :
+                #   grep -c "خمس سنوات" docs/sources/loi_71-24_extrait_BO7478.txt        # 3
+                #   grep -c "عشر سنوات" docs/sources/code_commerce_avant_reforme_PMP.txt # 4
+                - active
+
+                # Régularisée, et les effets PURGÉS.
+                - purgee
+
+                # Les cinq ans écoulés sans régularisation : l'interdiction
+                # tombe par épuisement du délai, mais les effets ne sont PAS
+                # purgés. C'est ce qui distingue cet état de `purgee`, et c'est
+                # pourquoi on ne les confond pas en un seul « plus interdit ».
+                - expiree
+
+            transitions:
+
+                # ★ LA TROISIÈME TRANSITION IRRÉVERSIBLE DU PROJET.
+                #
+                # Art. 313 nouveau : le titulaire recouvre la faculté
+                # d'émettre, sous réserve de l'art. 317, s'il établit
+                #  (1) qu'il a payé le montant du chèque ou constitué une
+                #      provision suffisante et disponible sur son compte DANS
+                #      UN DÉLAI DE DEUX ANS à compter de la date d'expiration
+                #      du délai de présentation au paiement
+                #      (« خلال مدة سنتين ابتداء من تاريخ انتهاء أجل التقديم
+                #      للوفاء ») — cette fenêtre est NOUVELLE, l'ancien
+                #      art. 313 posait les mêmes conditions SANS AUCUN DÉLAI ;
+                #  (2) qu'il a payé la pénalité de l'art. 314.
+                #
+                # « تؤدي التسوية إلى رفع المنع … وتطهير جميع الآثار المترتبة
+                #   عليه » — la régularisation lève l'interdiction et PURGE
+                # TOUS SES EFFETS. D'où l'irréversibilité : aucune transition
+                # ne part de `purgee`.
+                #
+                # ★ NOTEZ LE POINT DE DÉPART : c'est l'ÉCHÉANCE d'une autre
+                # horloge (H1, le délai de présentation), et non un événement
+                # daté. C'est l'exemple le plus net de ce qu'un champ
+                # `dateLimiteRegularisation` unique aurait rendu inexprimable.
+                # La garde correspondante est donc temporelle, dans l'écouteur.
+                #
+                # Degré : ÉTABLI. `LOI.md` § 3.A9.
+                regulariser:
+                    from: active
+                    to: purgee
+                    guard: "subject.deuxConditionsDeRegularisationReunies()"
+
+                # Déclenchée par le seul passage du temps, comme
+                # `expirer_delai` — donc sans garde ici, et sans `is_granted`,
+                # puisque le Scheduler la pousse hors requête.
+                # Art. 312 nouveau. Degré : ÉTABLI.
+                expirer:
+                    from: active
+                    to: expiree

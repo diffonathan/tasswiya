@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasswiya — planche de contrôle de la charte</title>
+<link rel="icon" href="/marque/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/charte/tasswiya.css">
+<!--
+  LA PLANCHE DE CONTRÔLE.
+
+  Elle n'est pas une page du produit : elle n'a ni contrôleur, ni gabarit
+  Twig, ni donnée. Elle sert à VOIR les jetons et à les éprouver, et elle est
+  volontairement statique pour rester vraie quand le domaine casse.
+
+      http://localhost:8001/charte/planche.html
+
+  Elle vérifie trois choses qu'aucun script ne peut vérifier :
+    1. que les quatre degrés de certitude se distinguent SANS LÉGENDE ;
+    2. qu'ils se distinguent encore en NOIR ET BLANC (colonne de droite,
+       passée au `filter: grayscale(1) contrast(1.1)`) ;
+    3. qu'à 375 px rien ne déborde.
+
+  Elle ne charge que `tasswiya.css` : si un jeton manque, la planche le
+  montre au lieu de le cacher.
+-->
+<style>
+    /* Styles PROPRES À LA PLANCHE, et à elle seule. Rien ici n'appartient à
+       la charte : on ne salit pas le fichier de jetons avec l'outil qui sert
+       à le regarder. */
+    .planche-duo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+    /* La colonne de droite simule l'impression en niveaux de gris et la
+       vision achromatique. C'est l'épreuve du cinquième rôle. */
+    .planche-nb { filter: grayscale(1) contrast(1.08); }
+    .planche-nb::before {
+        content: "la même chose, sans aucune couleur";
+        display: block;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--encre-sourde);
+        margin-bottom: 0.6rem;
+    }
+    @media (max-width: 40rem) {
+        .planche-duo { grid-template-columns: 1fr; }
+    }
+
+    .echelle { display: flex; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap; margin: 1rem 0; }
+    .echelle figure { margin: 0; text-align: center; }
+    .echelle figcaption { font-size: 0.7rem; color: var(--encre-sourde); margin-top: 0.4rem; font-family: var(--police-nombre); }
+
+    .nuancier { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 0.6rem; margin: 1rem 0; }
+    .nuancier div { border: 1px solid var(--filet); border-radius: var(--rayon); padding: 0.5rem 0.6rem; font-size: 0.75rem; }
+    .nuancier span { display: block; height: 2rem; border-radius: 3px; margin-bottom: 0.4rem; }
+    .nuancier code { font-size: 0.7rem; color: var(--encre-sourde); }
+</style>
+</head>
+<body>
+
+<div class="avertissement" role="note">
+    <strong>Ceci n'est pas un conseil juridique.</strong>
+    <p>Cette page est un outil de contrôle graphique. Les énoncés de règles
+    qu'elle affiche sont des exemples destinés à montrer un traitement
+    visuel, pas à renseigner sur le droit.</p>
+</div>
+
+<div class="enveloppe">
+
+    <a class="marque" href="/">
+        <img class="marque__symbole" src="/marque/logo.svg" alt="" width="32" height="32">
+        <span class="marque__nom">Tasswiya</span>
+        <span class="marque__arabe" lang="ar" dir="rtl">تسوية</span>
+    </a>
+
+    <h1>Planche de contrôle de la charte</h1>
+    <p class="sourd">
+        Palette 17 — Indigo <code>#635bff</code> du catalogue maison. Les
+        nombres de cette charte sont imprimés par
+        <code>docker compose exec php php brand/mesures/charte.php</code> ;
+        les raisons sont dans <code>CHARTE.md</code>.
+    </p>
+
+    <h2>1. Le logo aux tailles où il sera vu</h2>
+    <p class="sourd">
+        La grandeur critique est le <strong>vide horizontal</strong> avant la
+        pièce d'or : c'est lui qui porte le sens, et c'est lui qui se soude le
+        premier. 6 unités sur <code>logo.svg</code>, 7 sur
+        <code>favicon.svg</code>.
+    </p>
+    <div class="echelle">
+        <figure><img src="/marque/favicon.svg" alt="" width="16" height="16"><figcaption>favicon 16</figcaption></figure>
+        <figure><img src="/marque/logo.svg" alt="" width="16" height="16"><figcaption>logo 16</figcaption></figure>
+        <figure><img src="/marque/logo.svg" alt="" width="24" height="24"><figcaption>logo 24</figcaption></figure>
+        <figure><img src="/marque/logo.svg" alt="" width="32" height="32"><figcaption>logo 32</figcaption></figure>
+        <figure><img src="/marque/logo.svg" alt="" width="64" height="64"><figcaption>logo 64</figcaption></figure>
+        <figure><img src="/marque/logo.svg" alt="" width="128" height="128"><figcaption>logo 128</figcaption></figure>
+    </div>
+    <div class="echelle">
+        <figure><img src="/marque/logo-mono.svg" alt="" width="32" height="32"><figcaption>mono 32 — son plancher</figcaption></figure>
+        <figure><img src="/marque/logo-mono.svg" alt="" width="64" height="64"><figcaption>mono 64</figcaption></figure>
+        <figure><img src="/marque/logo-complet.svg" alt="" width="232" height="64"><figcaption>complet 232×64</figcaption></figure>
+    </div>
+
+    <h2>2. Les quatre rôles de couleur</h2>
+    <div class="nuancier">
+        <div><span style="background:var(--indigo)"></span><strong>Indigo — l'action</strong><br><code>--indigo #635bff</code></div>
+        <div><span style="background:var(--or)"></span><strong>Or — les montants</strong><br><code>--or #f9a825</code></div>
+        <div><span style="background:var(--vert-encre)"></span><strong>Vert — réglé</strong><br><code>--vert-encre</code></div>
+        <div><span style="background:var(--rouge-encre)"></span><strong>Rouge — perdu</strong><br><code>--rouge-encre</code></div>
+    </div>
+    <p>
+        Un bouton <a class="bouton" href="#2">Prolonger le délai</a>
+        et un bouton discret <a class="bouton bouton--discret" href="#2">Annuler</a>.
+        Un état <span class="jalon jalon--regle">régularisé</span>,
+        un état <span class="jalon jalon--en-cours">délai en cours</span>,
+        un état <span class="jalon jalon--perdu">délai expiré</span>.
+    </p>
+    <p>
+        Montant du chèque <span class="montant">48 500,00 DH</span> —
+        manquant <span class="montant">12 350,00 DH</span> —
+        manquant non chiffré <span class="montant montant--indetermine">indéterminé</span>.
+        <span class="sourd">Données fictives.</span>
+    </p>
+
+    <h2>3. Le cinquième rôle — le degré de certitude</h2>
+    <p class="sourd">
+        Quatre canaux, dont trois non chromatiques : style de filet, trame de
+        fond, retrait, étiquette. La colonne de droite est la même chose
+        passée en niveaux de gris — si les quatre degrés s'y distinguent
+        encore, le rôle tient.
+    </p>
+
+    <div class="planche-duo">
+        <div>
+            <div class="regle regle--etabli">
+                <span class="regle__degre">établi</span>
+                <p class="regle__enonce">Le délai de régularisation est de trente jours à compter de la date de l'écédar.</p>
+                <p class="regle__attribution">Art. 325 al. 6 — loi n° 71.24, BO n° 7478 du 29 janvier 2026 (version arabe seule officielle ; traduction de travail, non opposable)</p>
+            </div>
+
+            <div class="regle regle--probable">
+                <span class="regle__degre">probable</span>
+                <p class="regle__enonce">La prorogation pratiquée est de trente jours supplémentaires.</p>
+                <p class="regle__attribution">Art. 325 al. 8 — circulaire de la Présidence du ministère public du 3 février 2026</p>
+            </div>
+
+            <div class="regle regle--incertain">
+                <span class="regle__degre">incertain — à vérifier</span>
+                <p class="regle__enonce">Le délai de déclaration des incidents à Bank Al-Maghrib n'a pas été établi : la circulaire qui le fixe n'a pas été trouvée.</p>
+                <p class="regle__attribution">Art. 322 — point non tranché, à vérifier</p>
+            </div>
+
+            <div class="regle regle--choix-produit">
+                <span class="regle__degre">choix de ce logiciel</span>
+                <p class="regle__enonce">Une seule prorogation est autorisée par défaut. La loi n'en limite pas le nombre : c'est un paramètre de ce logiciel.</p>
+                <p class="regle__attribution">Hypothèse de ce logiciel — choix d'implémentation, pas une règle de droit</p>
+            </div>
+        </div>
+
+        <div class="planche-nb">
+            <div class="regle regle--etabli">
+                <span class="regle__degre">établi</span>
+                <p class="regle__enonce">Le délai de régularisation est de trente jours à compter de la date de l'écédar.</p>
+                <p class="regle__attribution">Art. 325 al. 6 — loi n° 71.24, BO n° 7478 du 29 janvier 2026</p>
+            </div>
+
+            <div class="regle regle--probable">
+                <span class="regle__degre">probable</span>
+                <p class="regle__enonce">La prorogation pratiquée est de trente jours supplémentaires.</p>
+                <p class="regle__attribution">Art. 325 al. 8 — circulaire de la Présidence du ministère public</p>
+            </div>
+
+            <div class="regle regle--incertain">
+                <span class="regle__degre">incertain — à vérifier</span>
+                <p class="regle__enonce">Le délai de déclaration des incidents à Bank Al-Maghrib n'a pas été établi.</p>
+                <p class="regle__attribution">Art. 322 — point non tranché, à vérifier</p>
+            </div>
+
+            <div class="regle regle--choix-produit">
+                <span class="regle__degre">choix de ce logiciel</span>
+                <p class="regle__enonce">Une seule prorogation est autorisée par défaut. La loi n'en limite pas le nombre.</p>
+                <p class="regle__attribution">Hypothèse de ce logiciel — pas une règle de droit</p>
+            </div>
+        </div>
+    </div>
+
+    <h2>4. L'arabe verbatim</h2>
+    <p>
+        Le mot qui fixe le point de départ du délai est
+        <span class="arabe" lang="ar">الإعذار</span> — l'écédar —, et les mots
+        qui ouvrent la prorogation sont
+        <span class="arabe" lang="ar">لمدة مماثلة أو أكثر</span>, « pour une
+        durée égale ou supérieure ».
+        <span class="sourd">Le produit affiche l'arabe source quand le mot
+        compte, parce que la version française n'est qu'une traduction de
+        travail.</span>
+    </p>
+
+    <h2>5. Un tableau, à la largeur la plus hostile</h2>
+    <div class="defilant">
+        <table>
+            <thead>
+                <tr><th>Horloge</th><th>Point de départ</th><th>Durée</th><th>État</th><th>Montant</th></tr>
+            </thead>
+            <tbody>
+                <tr><th scope="row">H3 — régularisation pénale</th><td>écédar</td><td><code>30 j</code></td><td><span class="jalon jalon--perdu">expiré</span></td><td class="montant">970,00 DH</td></tr>
+                <tr><th scope="row">H2 — pénalité bancaire</th><td>injonction bancaire</td><td><code>3 mois</code></td><td><span class="jalon jalon--en-cours">en cours</span></td><td class="montant">2 910,00 DH</td></tr>
+                <tr><th scope="row">H5 — interdiction bancaire</th><td>incident de paiement</td><td><code>5 ans</code></td><td><span class="jalon jalon--regle">purgée</span></td><td class="montant montant--indetermine">s. o.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2>6. Le débordement, mesuré et pas supposé</h2>
+    <p class="sourd">
+        Le contrôle ci-dessous s'exécute dans votre navigateur, à la largeur
+        où vous êtes. Il parcourt tous les éléments de la page et signale
+        ceux qui dépassent le bord — en excluant l'intérieur des zones
+        <code>.defilant</code>, dont c'est précisément le travail de déborder.
+        Réduisez la fenêtre à 375 px : le verdict doit rester vert.
+    </p>
+    <div id="mesure-debordement" class="encart">
+        <h3>Mesure du débordement</h3>
+        <p>JavaScript désactivé : ce contrôle ne s'est pas exécuté.</p>
+    </div>
+
+    <div class="encart">
+        <h3>Ce que cette planche ne prouve pas</h3>
+        <p>
+            Elle montre les jetons ; elle ne montre pas le produit. Le moment
+            qui compte — un dossier qui bascule tout seul en « délai expiré »
+            au seul passage du temps — se joue dans la machine à états, pas
+            ici. Cette planche sert à garantir qu'au moment où il se produira,
+            il se verra.
+        </p>
+    </div>
+
+    <footer class="sourd">
+        <p>
+            Source du texte : Bulletin officiel n° 7478 du 29 janvier 2026.
+            <strong>Seule la version arabe fait foi</strong> — il n'existe
+            aucune traduction française officielle de la loi n° 71.24. Tout
+            énoncé français de cet écran est une traduction de travail, non
+            opposable.
+        </p>
+    </footer>
+</div>
+
+<script>
+/*
+ * LA MESURE DU DÉBORDEMENT, DANS LA PAGE.
+ *
+ * La contrainte du projet dit « responsive ÉPROUVÉ à 375 px, pas supposé ;
+ * mesure le débordement, ne le regarde pas ». Et une autre contrainte
+ * interdit Chrome headless au déploiement. Le contrôle vit donc DANS la
+ * planche : il s'exécute à chaque ouverture, à la largeur réelle, et il se
+ * remesure au redimensionnement. Personne n'a à se souvenir de le lancer.
+ *
+ * Ce qu'il exclut, et pourquoi : tout ce qui est à l'intérieur d'un
+ * `.defilant`. Ces zones sont FAITES pour déborder — un tableau des cinq
+ * horloges ne rentre pas dans 375 px et on a décidé qu'il défilerait plutôt
+ * que de s'écraser. Les compter serait signaler comme défaut le
+ * comportement qu'on a choisi.
+ */
+(function () {
+    var cible = document.getElementById('mesure-debordement');
+
+    function mesurer() {
+        var largeur = window.innerWidth;
+        var fautifs = [];
+
+        document.querySelectorAll('.enveloppe *').forEach(function (el) {
+            if (el.closest('.defilant')) { return; }
+            var b = el.getBoundingClientRect();
+            if (b.width === 0 && b.height === 0) { return; }
+            if (b.right > largeur + 0.5 || b.left < -0.5) {
+                fautifs.push(
+                    el.tagName.toLowerCase()
+                    + (el.className ? '.' + String(el.className).split(' ')[0] : '')
+                    + ' → ' + Math.round(b.left) + '…' + Math.round(b.right) + ' px'
+                );
+            }
+        });
+
+        var zones = [].slice.call(document.querySelectorAll('.defilant')).map(function (z) {
+            var t = z.firstElementChild;
+            return Math.round(t ? t.scrollWidth : 0) + ' px dans ' + Math.round(z.clientWidth) + ' px';
+        });
+
+        var vert = fautifs.length === 0;
+        cible.innerHTML =
+            '<h3>Mesure du débordement</h3>'
+            + '<p>Largeur de la fenêtre : <span class="montant">' + largeur + ' px</span>.'
+            + ' Largeur du document : <span class="montant">'
+            + document.documentElement.scrollWidth + ' px</span>.</p>'
+            + '<p><span class="jalon ' + (vert ? 'jalon--regle' : 'jalon--perdu') + '">'
+            + (vert ? 'aucun débordement' : fautifs.length + ' débordement(s)')
+            + '</span></p>'
+            + (vert ? '' : '<ul><li>' + fautifs.join('</li><li>') + '</li></ul>')
+            + '<p class="sourd">Zones à défilement assumé : ' + zones.join(' ; ') + '.</p>';
+    }
+
+    mesurer();
+    var minuteur;
+    window.addEventListener('resize', function () {
+        clearTimeout(minuteur);
+        minuteur = setTimeout(mesurer, 120);
+    });
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="Tasswiya">
+  <title>Tasswiya</title>
+  <desc>Deux lignes qui finissent au même bord. Celle du bas est incomplète : il lui manque un intervalle, puis vient la pièce d'or — le montant — qui la met à niveau. L'intervalle est le délai.</desc>
+
+  <defs>
+    <!-- Indigo #635bff, palette 17 du catalogue maison. Dégradé obtenu par la
+         recette de la charte : eclaircir(accent, 0.45) → assombrir(accent, 0.22),
+         à -15°. Les deux bornes sont imprimées par
+         `brand/mesures/charte.php` § 5, elles ne sont pas choisies à l'œil. -->
+    <linearGradient id="champ" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#a9a5ff"/>
+      <stop offset="1" stop-color="#4d47c7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="15" fill="url(#champ)"/>
+
+  <!-- ══ Géométrie, et pourquoi ces nombres ═══════════════════════════════
+
+       Toutes les grandeurs sont imprimées par `brand/mesures/charte.php` § 8,
+       en unités et en pixels à 16, 24 et 200 px. Le plancher maison est de
+       3 unités d'épaisseur ; la leçon reprise de Mizan est que c'est le VIDE
+       entre les formes, et non leur épaisseur, qui décide de la lisibilité.
+
+         épaisseur d'une barre                 7 u   →  2,62 px à 24 px
+         vide vertical entre les deux barres  10 u   →  3,75 px à 24 px
+         vide horizontal avant la pièce d'or   6 u   →  2,25 px à 24 px
+         marge au cadre                       12 u   →  4,50 px à 24 px
+
+       Le vide HORIZONTAL est la grandeur critique de ce logo, parce que c'est
+       lui qui porte le sens : c'est le manque. S'il se soude, le symbole dit
+       « une ligne et demie » au lieu de « il manque un intervalle ».
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- La ligne de référence : le niveau à atteindre. Elle est ENTIÈRE, et
+       c'est elle qui fixe le bord droit à x=52. Les deux lignes finissent au
+       même bord — « tasswiya », de la racine س-و-ي, c'est rendre égal, mettre
+       à niveau. L'égalité des bords droits est donc le nom du produit. -->
+  <rect x="12" y="20" width="40" height="7" rx="3.5" fill="#FFFFFF"/>
+
+  <!-- La ligne incomplète. Elle s'arrête à x=33, alors que la référence va
+       jusqu'à 52. Ce qui lui manque n'est pas dessiné en creux : la suite
+       est là, mais séparée. -->
+  <rect x="12" y="37" width="21" height="7" rx="3.5" fill="#FFFFFF"/>
+
+  <!-- LA PIÈCE D'OR, et c'est toute l'idée.
+       L'or est le rôle « valeur » de la charte maison ; dans ce produit il ne
+       porte QUE des montants — valeur du chèque, manquant, amendes. Ici, la
+       pièce d'or EST le montant, et elle est déjà posée à sa place, au bord
+       du niveau.
+
+       Ce qui sépare encore les deux, c'est le vide de 6 unités : le DÉLAI.
+       Le symbole dit donc exactement ce que fait le produit — le montant est
+       identifié, le niveau est connu, et il reste un intervalle de temps à
+       franchir avant que les deux se rejoignent.
+
+       Posée à gauche, elle se lirait comme une barre de progression, ce qui
+       inverserait le sens. Elle est à droite, après le vide, parce que c'est
+       le vide qui est le sujet. -->
+  <rect x="39" y="37" width="13" height="7" rx="3.5" fill="#f9a825"/>
+</svg>

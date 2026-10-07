@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="Tasswiya">
+  <title>Tasswiya</title>
+  <desc>Le symbole épaissi pour l'onglet de navigateur : mêmes trois formes, plus de matière et plus de vide, parce qu'à 16 px c'est le vide qui disparaît le premier.</desc>
+
+  <defs>
+    <linearGradient id="champ" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#a9a5ff"/>
+      <stop offset="1" stop-color="#4d47c7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="15" fill="url(#champ)"/>
+
+  <!-- ══ Pourquoi un fichier séparé ═══════════════════════════════════════
+
+       `logo.svg` tient à 16 px — son vide critique y fait 1,50 px — mais sans
+       marge. Un onglet est rendu avec de l'antialiasing, parfois sur fond
+       clair, parfois sur fond sombre, et 1,50 px de vide suffisent juste à
+       ne pas se souder. « Juste suffisant » n'est pas une marge.
+
+       Cette version épaissit la matière de 7 à 9 unités et le vide critique
+       de 6 à 7 unités :
+
+         épaisseur d'une barre     9 u  →  2,25 px à 16 px
+         vide horizontal           7 u  →  1,75 px à 16 px
+         vide vertical             8 u  →  2,00 px à 16 px
+
+       Le dessin est le même ; seules les proportions sont recalculées pour
+       la taille à laquelle il sera réellement vu. C'est ce qu'on perd à
+       n'avoir qu'un seul fichier pour toutes les tailles.
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- La ligne de référence, entière, bord droit à x=53. -->
+  <rect x="11" y="19" width="42" height="9" rx="4.5" fill="#FFFFFF"/>
+
+  <!-- La ligne incomplète, arrêtée à x=31. -->
+  <rect x="11" y="36" width="20" height="9" rx="4.5" fill="#FFFFFF"/>
+
+  <!-- La pièce d'or — le montant — et les 7 unités de vide qui sont le délai. -->
+  <rect x="38" y="36" width="15" height="9" rx="4.5" fill="#f9a825"/>
+</svg>

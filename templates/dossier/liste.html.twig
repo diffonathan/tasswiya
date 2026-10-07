@@ -1,0 +1,180 @@
+{% extends 'base.html.twig' %}
+
+{% block titre %}Dossiers — Tasswiya{% endblock %}
+
+{#
+   LA LISTE DES DOSSIERS — ce qu'un créancier ou un avocat ouvre le matin.
+
+   Ce qui compte n'est pas le tableau : C'EST CE QUI PRESSE. L'écran est donc
+   organisé en trois bandes, et à l'intérieur de chacune par nombre de jours
+   restants — jamais par date de création, qui classerait un dossier de l'an
+   dernier où plus rien ne court avant un dossier d'avant-hier où il reste deux
+   jours.
+
+   Et chaque ligne NOMME l'horloge qui la rend urgente. « 3 jours » sans son
+   point de départ serait l'erreur que ce projet existe pour ne pas commettre.
+#}
+{% block contenu %}
+    <h1>Dossiers</h1>
+
+    {% if horlogeDeDemonstration %}
+        {# Le décalage de la démonstration déplace TOUTES les échéances de cet
+           écran. Un tableau de délais qui ne dirait pas de quel présent il
+           parle serait un piège. #}
+        <div class="encart encart--demonstration">
+            <h3>Horloge de démonstration en cours</h3>
+            <p>
+                Le présent est poussé de
+                <strong>{{ horlogeDeDemonstration.decalageEnJours }} jour(s)</strong>
+                au-delà du temps réel. Toutes les échéances de cet écran sont
+                calculées sur ce présent décalé.
+                <a href="{{ path('demonstration') }}">Réglage de l'horloge</a>.
+            </p>
+            <p class="sourd">
+                Aucune donnée n'a été antidatée : le dossier ne vieillit pas,
+                c'est le présent qui avance.
+            </p>
+        </div>
+    {% endif %}
+
+    <p class="sourd">
+        {{ urgences|length }} dossier(s) fictif(s), au {{ aujourdHui|date('d/m/Y') }} :
+        <strong>{{ comptes.presse }}</strong> où une horloge court encore,
+        <strong>{{ comptes.passee }}</strong> dont toutes les échéances sont
+        passées, <strong>{{ comptes.close }}</strong> clos au pénal.
+        Triés par urgence réelle — et non par date de création.
+    </p>
+
+    {% set bandes = {
+        'presse': {
+            'titre': 'Ce qui presse',
+            'propos': "Au moins une horloge court encore. Le dossier le plus urgent d'abord, c'est-à-dire
+                       celui dont il reste le moins de jours — toutes horloges confondues, puisqu'elles ne
+                       partent pas du même événement."
+        },
+        'passee': {
+            'titre': 'Échéances passées',
+            'propos': "Toutes les horloges de ces dossiers sont échues. Ce n'est pas « perdu » : l'expiration
+                       du délai de l'article 325 al. 6 fait tomber l'obstacle procédural à la poursuite, elle
+                       n'éteint aucun droit. Le paiement ou le désistement, plus l'amende de 2 %, éteignent
+                       encore l'action publique."
+        },
+        'close': {
+            'titre': 'Clos au pénal',
+            'propos': "L'état pénal est terminal. Des horloges BANCAIRES peuvent continuer de courir — une
+                       justification familiale retenue n'arrête pas les cinq ans de l'interdiction d'émettre,
+                       et la ligne l'affiche. Le pénal est clos, la banque ne l'est pas."
+        },
+    } %}
+
+    {% for cle, bande in bandes %}
+        {% set deLaBande = urgences|filter(u => u.bande == cle) %}
+        {% if deLaBande is not empty %}
+            <h2>{{ bande.titre }} <span class="sourd">({{ deLaBande|length }})</span></h2>
+            <p class="sourd">{{ bande.propos }}</p>
+
+            <div class="defilant defilant--empilable">
+                <table class="liste-dossiers">
+                    <thead>
+                        <tr>
+                            <th scope="col">Dossier</th>
+                            <th scope="col">Position</th>
+                            <th scope="col">Ce qui presse</th>
+                            <th scope="col">Part de</th>
+                            <th scope="col">Montant du chèque</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for urgence in deLaBande %}
+                        {% set dossier = urgence.dossier %}
+                        <tr>
+                            <th scope="row">
+                                <a href="{{ path('dossier_detail', { reference: dossier.reference }) }}">{{ dossier.reference }}</a>
+                                <br>
+                                <span class="sourd">{{ dossier.tireur.nomFictif }} &rarr; {{ dossier.beneficiaire.nomFictif }}</span>
+                            </th>
+                            <td data-libelle="Position">
+                                <span class="jalon jalon--{{ ton_etat(dossier.etat) }}">{{ libelle_etat(dossier.etat) }}</span>
+                                {% if urgence.sousControleJudiciaire %}
+                                    <br>
+                                    {# Ce n'est pas un détail : c'est ce qui
+                                       distingue ces trente jours d'un délai de
+                                       grâce. L'article 325 al. 7 est à
+                                       l'impératif. #}
+                                    <span class="sourd">tireur sous contrôle judiciaire</span>
+                                {% endif %}
+                            </td>
+                            <td data-libelle="Ce qui presse">
+                                {% if urgence.horlogePressante is null %}
+                                    <span class="jalon jalon--regle">rien ne court</span>
+                                {% elseif urgence.joursRestants < 0 %}
+                                    <span class="jalon jalon--perdu">échue depuis {{ (urgence.joursRestants * -1) }} j</span>
+                                {% else %}
+                                    <span class="jalon {{ urgence.imminente ? 'jalon--perdu' : 'jalon--en-cours' }}">{{ urgence.joursRestants }} j</span>
+                                {% endif %}
+                                {% if urgence.horlogePressante %}
+                                    <br>
+                                    <span class="sourd">
+                                        <span class="horloges__code">{{ urgence.horlogePressante.code }}</span>
+                                        {{ urgence.horlogePressante.libelle|lower }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td data-libelle="Part de">
+                                {% if urgence.horlogePressante %}
+                                    {{ point_de_depart(urgence.horlogePressante.code) }}
+                                    <br>
+                                    <span class="sourd">
+                                        le {{ urgence.horlogePressante.depart|date('d/m/Y') }},
+                                        échéance au {{ urgence.horlogePressante.echeance|date('d/m/Y') }}
+                                    </span>
+                                {% else %}
+                                    <span class="sourd">aucune horloge n'a de point de départ sur ce dossier</span>
+                                {% endif %}
+                            </td>
+                            {# RÔLE OR : un montant, et seulement un montant.
+                               En mono avec `tabular-nums`, pour que la colonne
+                               de dirhams s'aligne d'une ligne à l'autre. #}
+                            <td class="montant" data-libelle="Montant du chèque">
+                                {{ (dossier.cheque.montantEnCentimes / 100)|number_format(2, ',', ' ') }} DH
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    {% endfor %}
+
+    {% if urgences is empty %}
+        <p>
+            Aucun dossier. Chargez le jeu fictif :
+            <code>docker compose exec php bin/console tasswiya:charger-les-donnees-de-demonstration</code>.
+        </p>
+    {% endif %}
+
+    {# ─── CE QUE CE TRI N'EST PAS, ET POURQUOI ────────────────────────── #}
+    <div class="encart">
+        <h3>Pourquoi ce tri n'est pas un <code>ORDER BY</code></h3>
+        <p>
+            Aucune échéance n'est persistée. Les cinq horloges se recalculent
+            depuis des <strong>faits datés</strong> — date de l'écédar, de
+            l'injonction bancaire, de l'incident — la durée initiale et la somme
+            des prorogations accordées, selon des règles de calcul
+            substituables.
+        </p>
+        <p>
+            Une colonne <code>date_limite</code> figerait chaque dossier sous
+            les hypothèses de calcul du jour où il a été écrit : une correction
+            de l'hypothèse de comptage ne repasserait jamais sur les dossiers
+            anciens, et le tri mentirait d'autant plus qu'il paraîtrait rapide.
+            Le classement se fait donc en PHP, sur l'horloge recalculée —
+            <code>App\Domaine\Urgence\ClassementParUrgence</code>.
+        </p>
+    </div>
+
+    {{ include('partiel/_regle.html.twig', {
+        titre: 'Comment ce logiciel compte les jours',
+        regle: regle_de_comptage(reglesDeDelai),
+    }, with_context = false) }}
+{% endblock %}

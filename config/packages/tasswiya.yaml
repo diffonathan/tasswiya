@@ -1,0 +1,135 @@
+#  ╔═══════════════════════════════════════════════════════════════════════╗
+#  ║  TASSWIYA — LES PARAMÈTRES QUI NE SONT PAS DU DROIT                   ║
+#  ╚═══════════════════════════════════════════════════════════════════════╝
+#
+#  Ce fichier ne contient AUCUNE règle de droit. Il n'y a ici que des choix
+#  d'implémentation, ceux de `LOI.md` § 6, et ils doivent s'afficher dans le
+#  produit comme tels — dans un encart « hypothèses de calcul » distinct des
+#  règles sourcées.
+#
+#  La séparation est délibérée : les règles de droit sont dans
+#  `config/packages/workflow.yaml` et dans le code, avec leur article et leur
+#  degré de certitude. Ce qui est ici est modifiable sans toucher au droit, et
+#  réciproquement. Un paramètre qui migrerait dans le graphe se ferait passer
+#  pour une règle.
+
+parameters:
+
+    # ─── H3 — Le nombre de prorogations que ce logiciel autorise ───────────
+    #
+    # ⚠ CE N'EST PAS UNE RÈGLE DE DROIT.
+    #
+    # La loi 71.24 NE LIMITE PAS le nombre de prorogations. L'art. 325 al. 8
+    # ouvre une durée « égale ou supérieure » au délai initial, après décision
+    # du ministère public et accord du bénéficiaire, SANS plafond de durée et
+    # SANS limite de nombre. Les mots « مرة واحدة » (une seule fois) ne
+    # figurent ni dans la loi, ni dans la circulaire du parquet — vérification
+    # par absence, reproductible depuis la racine du dépôt :
+    #
+    #   grep -c "مرة واحدة" docs/sources/loi_71-24_extrait_BO7478.txt       # 0
+    #   grep -c "مرة واحدة" docs/sources/circulaire_parquet_2-2026_OCR.txt  # 0
+    #
+    # La valeur 1 reflète la pratique décrite par la circulaire du parquet,
+    # pas une interdiction légale. Elle est persistée PAR DOSSIER à
+    # l'ouverture, pour qu'un changement de ce paramètre ne modifie pas
+    # rétroactivement un dossier déjà ouvert.
+    #
+    # `LOI.md` § 4.1 et § 6 H3.
+    tasswiya.quota_prolongations_par_defaut: 1
+
+    # ─── Valeur de durée proposée dans le formulaire ───────────────────────
+    #
+    # 30 jours, étiquetés « pratique du ministère public (circulaire du
+    # 3 février 2026) » et jamais « loi 71-24 ». Une saisie supérieure est
+    # ACCEPTÉE — la loi l'autorise — avec une mention. Et jamais de plafond à
+    # 60 jours, qui n'est écrit nulle part. `LOI.md` § 4.12.
+    tasswiya.duree_prolongation_proposee_en_jours: 30
+
+    # ─── H8 — Données strictement fictives ─────────────────────────────────
+    #
+    # Interrupteur d'intention, pas de sécurité : il sert à faire échouer les
+    # jeux de données et les tests si quelqu'un tente d'introduire des données
+    # qui ressemblent à des données réelles. Aucune donnée personnelle réelle,
+    # jamais ; aucun RIB, aucune CIN, aucun numéro de chèque plausible, aucune
+    # banque réelle nommée.
+    tasswiya.donnees_strictement_fictives: true
+
+    # ─── Avertissement affiché sur CHAQUE écran ────────────────────────────
+    #
+    # Contrainte n° 1 du projet, et elle ne se négocie pas : ce logiciel n'est
+    # pas un conseil juridique et ne doit jamais le laisser croire.
+    #
+    # La seconde phrase n'est pas un ornement : il n'existe AUCUNE version
+    # française officielle de la loi 71.24 — la série française du Bulletin
+    # officiel passe du n° 7474 au n° 7480, et aucun numéro français de 2026
+    # jusqu'au n° 7540 ne contient « 71.24 », « 1.26.03 » ni « 15.95 ». Écrire
+    # « art. 325, BO n° 7478 du 29 janvier 2026 » sous un libellé français,
+    # sans cette mention, serait une fausse citation. `LOI.md` § 3.C6.
+    tasswiya.avertissement_juridique: >
+        Ceci n'est pas un conseil juridique. Ce logiciel aide à préparer un
+        dossier ; il ne décide d'aucune situation réelle. Pour une situation
+        réelle, consultez un avocat.
+
+    tasswiya.avertissement_traduction: >
+        Seule la version arabe du Bulletin officiel n° 7478 du 29 janvier 2026
+        fait foi. Les énoncés français de ce logiciel sont une traduction de
+        travail, non opposable : il n'existe pas de version française
+        officielle de la loi n° 71.24.
+
+    # ─── Ce que le produit n'affichera PAS, et pourquoi ────────────────────
+    #
+    # Liste tenue pour qu'un ajout futur se heurte à une raison écrite plutôt
+    # qu'à un oubli. Chaque entrée est un chiffre ou une règle que les sources
+    # ne permettent pas de publier.
+    tasswiya.interdits_d_affichage:
+        # Aucun délai de déclaration des incidents à Bank Al-Maghrib :
+        # l'art. 322 (non modifié) renvoie à « un délai fixé par Bank
+        # Al-Maghrib », et cette circulaire n'a pas été trouvée. Le renvoi est
+        # établi, le délai est incertain. `LOI.md` § 3.A12.
+        - delai_de_declaration_a_bank_al_maghrib
+
+        # Aucune comparaison du barème de l'art. 314 avec l'ancien : l'édition
+        # officielle du Code imprime 1 % / 10 % / 20 %, la doctrine courante
+        # cite 5 % / 10 % / 20 %, et le point n'est pas tranché. Donc aucune
+        # phrase du genre « les pénalités ont été divisées par dix ».
+        # `LOI.md` § 4.6.
+        - comparaison_ancien_bareme_article_314
+
+        # Aucun « 2 % contre 25 % auparavant » : les 25 % de l'ancien art. 316
+        # étaient le PLANCHER DE L'AMENDE PÉNALE, pas un taux de
+        # régularisation. Les deux chiffres ne portent pas sur la même chose.
+        # `LOI.md` § 4.2.
+        - comparaison_deux_pour_cent_contre_vingt_cinq_pour_cent
+
+        # Aucune statistique sur les prorogations : personne ne publie le
+        # nombre d'écédars notifiés, ni de prorogations demandées, accordées ou
+        # refusées. Le mécanisme que ce produit met en scène n'a AUCUN chiffre
+        # derrière lui, et il ne faut pas le combler par une estimation.
+        # `LOI.md` § 4.15.
+        - statistiques_sur_les_prorogations
+
+        # Aucun chiffre du phénomène (volumétries Bank Al-Maghrib, dossiers
+        # classés) : ils ne sont connus que par reprises de presse ou
+        # déclaration en séance, pas par ouverture du document source. La règle
+        # de la commande n'est pas satisfaite.
+        - volumetries_du_phenomene
+
+        # Aucun bouton « geler le montant » côté créancier : l'art. 242
+        # nouveau exige la demande du porteur OU du bénéficiaire ET L'ORDRE DU
+        # TIREUR. Ce n'est pas une faculté unilatérale du bénéficiaire, et un
+        # tel bouton modéliserait une règle inexistante. De surcroît, la
+        # circulaire du Wali de Bank Al-Maghrib qui en fixe les modalités n'a
+        # pas été trouvée : écrire « texte d'application non retrouvé », jamais
+        # « inapplicable ». `LOI.md` § 3.A13.
+        - gel_electronique_unilateral
+
+        # Aucune « attestation de régularisation » : cette pièce n'existe pas
+        # sous ce nom. Les pièces que la procédure produit réellement sont
+        # énumérées dans `App\Enum\TypePieceJustificative`. `LOI.md` § 4.13.
+        - attestation_de_regularisation
+
+        # Aucun seuil de « petit chèque » : rien dans la loi 71.24 ne module le
+        # délai, la prorogation ou l'amende selon le montant, et le contrôle
+        # judiciaire obligatoire s'applique quel que soit le montant.
+        # `LOI.md` § 3.B19.
+        - seuil_de_petit_cheque

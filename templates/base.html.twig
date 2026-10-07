@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titre %}Tasswiya{% endblock %}</title>
+
+    {# La marque et les jetons.
+
+       `favicon.svg` plutôt que `logo.svg` : le symbole y est épaissi pour la
+       taille d'un onglet, où c'est le VIDE entre les formes qui disparaît le
+       premier. Les deux fichiers et la raison sont dans `brand/README.md`. #}
+    <link rel="icon" href="{{ asset('marque/favicon.svg') }}" type="image/svg+xml">
+
+    {# Toute la charte est dans UN fichier servi tel quel depuis `public/`.
+       Contrainte n° 2 du projet : aucune chaîne de construction npm, donc ni
+       AssetMapper ni Encore — ce que le navigateur reçoit est exactement ce
+       qui est écrit dans le fichier. Les raisons des choix sont dans
+       `CHARTE.md`, et les nombres sortent de
+       `docker compose exec php php brand/mesures/charte.php`. #}
+    <link rel="stylesheet" href="{{ asset('charte/tasswiya.css') }}">
+
+    {% block tete %}{% endblock %}
+</head>
+<body>
+    {# Avertissement et mention de source sont dans le GABARIT DE BASE et non
+       dans chaque page : une mention qu'il faut penser à passer page par page
+       finit par manquer sur une page, et c'est exactement celle qu'un lecteur
+       prendra pour un conseil juridique. #}
+    <div class="avertissement" role="note">
+        <strong>Ceci n'est pas un conseil juridique.</strong>
+        <p>
+            Tasswiya est une démonstration technique. Les données affichées sont
+            fictives et aucun montant n'est opposable. Pour une situation réelle,
+            consultez un avocat.
+        </p>
+    </div>
+
+    <div class="enveloppe">
+        {# Le logotype renvoie à l'accueil et porte le mot arabe dont
+           « Tasswiya » n'est que la transcription : la seule version
+           officielle de la loi n° 71.24 est en arabe, et la marque le dit dès
+           l'en-tête plutôt que de laisser croire à un outil francophone. #}
+        <a class="marque" href="{{ path('accueil') }}">
+            <img class="marque__symbole" src="{{ asset('marque/logo.svg') }}"
+                 alt="" width="32" height="32">
+            <span class="marque__nom">Tasswiya</span>
+            <span class="marque__arabe" lang="ar" dir="rtl">تسوية</span>
+        </a>
+
+        {# La navigation des trois écrans. En indigo, parce que l'indigo est le
+           rôle ACTION de la charte et qu'une barre de navigation est
+           exactement cela — réciproquement, rien de non cliquable ne le prend.
+
+           Elle ne cite que les routes de ces écrans : lier une route qui
+           n'existe pas encore ferait tomber en 500 toutes les pages à la fois,
+           et un gabarit de base est le pire endroit pour une telle panne. #}
+        <nav class="navigation" aria-label="Écrans de Tasswiya">
+            <a href="{{ path('accueil') }}">État de la pile</a>
+            <a href="{{ path('dossiers_liste') }}">Dossiers</a>
+            <a href="{{ path('demonstration') }}">Horloge de démonstration</a>
+        </nav>
+
+        {% block contenu %}{% endblock %}
+
+        <footer class="sourd">
+            <p>
+                Source du texte : {{ source_officielle }}.
+                <strong>Seule la version arabe fait foi</strong> — il n'existe
+                aucune traduction française officielle de la loi n° 71.24. Tout
+                énoncé français de cet écran est une traduction de travail, non
+                opposable.
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

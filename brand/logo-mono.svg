@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="Tasswiya" fill="currentColor">
+  <title>Tasswiya</title>
+  <desc>Version à une seule couleur, héritée du texte environnant. La pièce qui met la ligne à niveau y est ÉVIDÉE : sans l'or, c'est la forme qui doit porter la distinction — et une pièce creuse dit juste ce qu'elle doit dire, un montant encore dû.</desc>
+
+  <!-- ══ Le monochrome a sa propre géométrie ══════════════════════════════
+
+       Ce fichier n'est PAS la version couleur dépouillée. Sans le champ
+       indigo ni la pièce d'or, tout ce qui portait la différence disparaît,
+       et il faut la reconstruire autrement :
+
+         1. le champ devient un CONTOUR évidé, sinon le symbole perd sa
+            silhouette de pastille et flotte dans la page ;
+         2. la pièce d'or devient une pièce CREUSE — la distinction passe de
+            la couleur à la forme, exactement comme le plateau de droite de
+            Mizan devient un anneau ;
+         3. tout s'épaissit : 8 unités au lieu de 7, et le vide horizontal
+            passe de 6 à 7 unités, parce qu'un contour coûte deux parois là
+            où un aplat n'en coûtait aucune.
+
+       CONSÉQUENCE MESURÉE, et c'est une limite à dire : la paroi de la pièce
+       creuse fait 2,5 unités, soit 0,63 px à 16 px. Elle disparaît. Le
+       plancher de cette version est donc 32 px, pas 16 px — pour un onglet
+       de navigateur, c'est `favicon.svg` qu'il faut, jamais celui-ci.
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- Le contour. 3 unités de paroi, et le contenu démarre 8 unités plus
+       loin que son bord intérieur : le même raisonnement sur le vide. -->
+  <rect x="1.5" y="1.5" width="61" height="61" rx="14"
+        fill="none" stroke="currentColor" stroke-width="3"/>
+
+  <!-- La ligne de référence, entière. Elle fixe le bord droit à x=53. -->
+  <rect x="11" y="19" width="42" height="8" rx="4"/>
+
+  <!-- La ligne incomplète, arrêtée à x=31. -->
+  <rect x="11" y="37" width="20" height="8" rx="4"/>
+
+  <!-- La pièce qui met à niveau, ÉVIDÉE. Le rectangle est rentré d'une
+       demi-paroi (1,25 u) pour que le trait tombe sur la géométrie annoncée
+       et non à côté : un `stroke` se dessine à cheval sur le chemin. -->
+  <rect x="39.25" y="38.25" width="12.5" height="5.5" rx="2.75"
+        fill="none" stroke="currentColor" stroke-width="2.5"/>
+</svg>

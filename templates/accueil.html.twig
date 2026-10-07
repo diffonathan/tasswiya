@@ -1,0 +1,82 @@
+{% extends 'base.html.twig' %}
+
+{% block titre %}Tasswiya — état du squelette{% endblock %}
+
+{% block contenu %}
+    <h1>Tasswiya</h1>
+    <p class="sourd">
+        Suivi des délais de régularisation des chèques impayés au Maroc,
+        loi n° 71.24 modifiant le Code de commerce (loi 15-95).
+    </p>
+
+    <h2>La pile répond</h2>
+    <p class="sourd">
+        Cette page ne touche aucune entité du domaine, volontairement : elle doit
+        pouvoir répondre « la pile tourne » pendant que le modèle métier est en
+        chantier. Sinon, un 500 ne dit plus si c'est Symfony, PostgreSQL ou le
+        domaine qui a lâché.
+    </p>
+    <table>
+        <tbody>
+            <tr>
+                <th scope="row">Symfony</th>
+                <td><code>{{ versionSymfony }}</code></td>
+            </tr>
+            <tr>
+                <th scope="row">PHP</th>
+                <td><code>{{ versionPhp }}</code></td>
+            </tr>
+            <tr>
+                <th scope="row">Environnement</th>
+                <td><code>{{ environnement }}</code></td>
+            </tr>
+            <tr>
+                <th scope="row">PostgreSQL</th>
+                <td>
+                    {% if base.joignable %}
+                        <span class="oui">joignable</span> — <code>{{ base.detail }}</code>
+                    {% else %}
+                        <span class="non">injoignable</span> — <code>{{ base.detail }}</code>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">Horloge injectée</th>
+                <td>
+                    <code>{{ horloge }}</code><br>
+                    {{ maintenant|date('d/m/Y H:i:s') }}
+                    <span class="sourd">(fuseau {{ maintenant|date('e') }})</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="encart">
+        <h3>Pourquoi l'horloge passe par le conteneur</h3>
+        <p>
+            Tout le métier de Tasswiya est une affaire de délais. Aucune classe
+            n'écrit <code>new DateTimeImmutable()</code> : l'heure arrive par
+            <code>Psr\Clock\ClockInterface</code>, et en test le même conteneur
+            fournit une <code>MockClock</code> figée. Le code applicatif ne change
+            pas d'une ligne — c'est la substitution d'implémentation, et elle se
+            prouve par un test, pas par un discours.
+        </p>
+    </div>
+
+    <h2>Ce que le squelette installe déjà</h2>
+    <p class="sourd">
+        Vérifiable : <code>docker compose exec php bin/console debug:container</code>,
+        <code>debug:messenger</code>, <code>debug:config framework</code>.
+    </p>
+    <table>
+        <tbody>
+            <tr><th scope="row">Doctrine ORM</th><td>Data Mapper, migrations versionnées, verrou optimiste</td></tr>
+            <tr><th scope="row">Workflow</th><td>machines à états <code>state_machine</code>, gardes en ExpressionLanguage — <code>bin/console workflow:dump dossier_penal</code></td></tr>
+            <tr><th scope="row">Messenger</th><td>transport Doctrine, sans Redis ni RabbitMQ (512 Mo au déploiement)</td></tr>
+            <tr><th scope="row">Scheduler</th><td>composant installé, pour les échéances</td></tr>
+            <tr><th scope="row">Clock</th><td><code>ClockInterface</code> partout, <code>MockClock</code> en test</td></tr>
+            <tr><th scope="row">Security</th><td>pare-feu et voters</td></tr>
+            <tr><th scope="row">Validator / Serializer</th><td>contraintes personnalisées, sérialisation</td></tr>
+        </tbody>
+    </table>
+{% endblock %}

@@ -1,0 +1,515 @@
+/* ═════════════════════════════════════════════════════════════════════════
+
+   TUTORIEL — LA MISE EN PAGE PROPRE À UN SEUL ÉCRAN
+
+   ─── POURQUOI UN SECOND FICHIER, ET PAS TROIS LIGNES DANS LA CHARTE ───────
+
+   `tasswiya.css` est la charte : elle porte les jetons, les cinq rôles et les
+   composants que TOUS les écrans partagent. Ce qui est ici ne sert qu'au
+   tutoriel — la commande d'horloge, le graphe d'états, la table des
+   conjonctions d'une garde — et n'a donc rien à faire dans un fichier que
+   chaque page télécharge.
+
+   La règle de la charte est tenue malgré la séparation, et c'est l'essentiel :
+
+     • AUCUNE VALEUR DE COULEUR N'EST ÉCRITE ICI. Pas un `#`, pas un `rgb()`.
+       Tout vient des jetons de `tasswiya.css`, donc les deux substrats et le
+       contraste forcé continuent de fonctionner sans qu'on y pense.
+     • AUCUN CHIFFRE DU DOSSIER. Ni délai, ni montant, ni pourcentage : une
+       feuille de style qui porterait un délai casserait la séparation que
+       `config/packages/tasswiya.yaml` tient depuis le début.
+     • AUCUNE COULEUR POUR PORTER UN DEGRÉ DE CERTITUDE. Le cinquième rôle
+       reste achromatique, et les quatre classes `.regle--*` de la charte sont
+       utilisées telles quelles, sans surcharge.
+     • SERVI TEL QUEL depuis `public/`, comme la charte : ni AssetMapper ni
+       Encore, donc ce que le navigateur reçoit est exactement ce qui est ici.
+
+   Un second point, qui se voit à l'usage : une transition refusée N'EST PAS
+   un échec. Le rouge appartient à « délai expiré » et le vert à « réglé » ;
+   une action qu'on ne peut pas faire aujourd'hui n'est ni l'un ni l'autre.
+   Et une transition franchissable n'est pas davantage de l'indigo : une ligne
+   de graphe ne se clique pas, et l'indigo ne se pose que sur ce qui se clique.
+   La distinction ouverte / barrée est donc ACHROMATIQUE et reprend la rampe du
+   cinquième rôle — filet plein pour ce qui passe, filet tireté et texte rayé
+   pour ce qui ne passe pas.
+
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ─── 1. Le fil du tutoriel ──────────────────────────────────────────────── */
+
+.tut-intro {
+    font-size: 1.05rem;
+    max-width: 42rem;
+}
+
+/* Le sommaire. `list-style: none` et des numéros portés par le contenu : les
+   quatre questions sont l'ossature du tutoriel, pas une énumération. */
+.tut-sommaire {
+    margin: 1.5rem 0 2.5rem;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.tut-sommaire li {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+}
+
+/* Le rang d'une question. En mono parce que c'est un nombre, et en encre
+   sourde parce qu'il ne doit pas concurrencer la question elle-même. */
+.tut-rang {
+    font-family: var(--police-nombre);
+    font-variant-numeric: tabular-nums;
+    color: var(--encre-sourde);
+    font-size: 0.85rem;
+    flex: none;
+}
+
+.tut-chapitre {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--filet);
+    /* Un chapitre du tutoriel est une unité de lecture : s'il se coupe en
+       deux pages, sa démonstration se coupe avec lui. */
+    break-inside: avoid;
+}
+
+/* La question que le chapitre traite, posée avant la réponse. */
+.tut-question {
+    font-size: 1.05rem;
+    font-weight: 600;
+    max-width: 42rem;
+    margin: 0 0 1rem;
+}
+
+/* ─── 2. La commande d'horloge ───────────────────────────────────────────── */
+
+/* Le seul élément interactif de l'écran, et il est en HTML pur : des liens et
+   un formulaire GET. Aucune ligne de JavaScript, donc la démonstration
+   fonctionne avec les scripts coupés et chaque cran est une URL qu'on peut
+   coller dans un message. */
+.tut-commande {
+    background: var(--papier-creux);
+    border: 1px solid var(--filet);
+    border-radius: var(--rayon);
+    padding: 0.9rem 1rem;
+    margin: 1rem 0 1.5rem;
+}
+
+.tut-commande__titre {
+    display: block;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--encre-sourde);
+    margin-bottom: 0.6rem;
+}
+
+.tut-crans {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.tut-cran {
+    display: inline-block;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--indigo-bordure);
+    border-radius: var(--rayon);
+    background: transparent;
+    color: var(--indigo-encre);
+    font-family: var(--police-nombre);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.88rem;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--transition);
+}
+
+.tut-cran:hover { background: var(--indigo-doux); }
+
+/* Le cran courant n'est plus une action : il perd l'indigo. */
+.tut-cran[aria-current="true"] {
+    background: var(--encre);
+    border-color: var(--encre);
+    color: var(--papier);
+    font-weight: 700;
+}
+
+.tut-saisie {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    margin-top: 0.7rem;
+}
+
+.tut-saisie input {
+    width: 6rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--filet-appuye);
+    border-radius: var(--rayon);
+    background: var(--papier-releve);
+    color: var(--encre);
+    font-family: var(--police-nombre);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+}
+
+.tut-saisie label { font-size: 0.88rem; color: var(--encre-sourde); }
+
+/* ─── 3. Le moment : état, verdict, graphe ───────────────────────────────── */
+
+/* Deux colonnes qui n'en font qu'une sous 36 rem. `auto-fit` avec un `1fr`
+   en maximum ne peut pas déborder : c'est ce qui rend la mesure à 375 px
+   prévisible au lieu d'être à vérifier à chaque ajout. */
+.tut-deux {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.tut-volet {
+    border: 1px solid var(--filet);
+    border-radius: var(--rayon);
+    padding: 0.9rem 1rem;
+    /* `min-width: 0` sur un enfant de grille : sans lui, un bloc à défilement
+       ou un long mot impose sa largeur intrinsèque à la colonne et c'est la
+       grille entière qui déborde. C'est le défaut classique, et il ne se voit
+       qu'à 375 px. */
+    min-width: 0;
+}
+
+.tut-volet > :first-child { margin-top: 0; }
+.tut-volet > :last-child { margin-bottom: 0; }
+
+/* Un volet peut porter plusieurs titres : le premier colle au bord haut
+   (`.tut-volet > :first-child` annule sa marge), les suivants respirent. */
+.tut-volet__titre {
+    margin: 1.25rem 0 0.5rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--encre-sourde);
+}
+
+/* Un volet hors grille, empilé dans le fil du texte. */
+.tut-volet--empile { margin-bottom: 1rem; }
+
+/* La dernière ligne d'un encart ou d'un volet : sa marge basse ferait un
+   blanc que la bordure du bloc rend visible. Une classe plutôt qu'un
+   `style=` dans le gabarit — la charte ne veut pas de style en ligne, et un
+   `style=` ne survit pas à un changement de jeton. */
+.tut-fin { margin-bottom: 0; }
+
+/* La bascule d'état : avant → après. La flèche est un caractère et non une
+   image, pour survivre à l'impression et au contraste forcé. */
+.tut-bascule {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.tut-fleche {
+    color: var(--encre-sourde);
+    font-family: var(--police-nombre);
+    flex: none;
+}
+
+/* Le compte à rebours. En mono et `tabular-nums` : c'est un nombre, et il
+   change d'un cran à l'autre — sans chiffres de largeur fixe, tout le bloc
+   tremblerait pendant une démonstration filmée. */
+.tut-compte {
+    font-family: var(--police-nombre);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+
+.tut-compte--nul {
+    font-size: 1.05rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--encre-sourde);
+}
+
+.tut-compte__unite {
+    font-family: var(--police-texte);
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--encre-sourde);
+}
+
+/* ─── 4. Le graphe d'états ───────────────────────────────────────────────── */
+
+.tut-graphe {
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.45rem;
+}
+
+/* ⚠ PAS D'INDIGO ICI, ET C'EST UNE RÈGLE DE LA CHARTE, PAS UN GOÛT.
+   L'indigo est le rôle « action » : il ne se pose que sur ce qui se clique.
+   Une ligne de ce graphe ne se clique pas — c'est un état du moteur affiché,
+   pas un bouton —, et un seul indigo décoratif rendrait le signal « on peut
+   cliquer ici » faux pour toute la page.
+
+   La distinction ouverte / barrée est donc ACHROMATIQUE, et elle reprend la
+   rampe du cinquième rôle : continu pour ce qui est franchissable, discontinu
+   pour ce qui ne l'est pas. Elle survit au noir et blanc, au daltonisme et à
+   l'impression par construction, comme le degré de certitude. */
+.tut-transition {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.35rem 0.55rem;
+    border-left: 3px solid var(--encre);
+    background: var(--papier-creux);
+    border-radius: 0 var(--rayon) var(--rayon) 0;
+    font-size: 0.88rem;
+    min-width: 0;
+}
+
+/* LA TRANSITION QUI SE BARRE. Trois canaux, et aucun n'est une couleur de
+   rôle : le texte est rayé, le filet de gauche passe du plein au tireté, le
+   fond disparaît. Un refus n'est pas une perte — le rouge appartient à
+   « délai expiré », et lui faire dire deux choses lui ferait ne plus rien
+   dire. */
+.tut-transition--barree {
+    border-left-style: dashed;
+    border-left-color: var(--filet-appuye);
+    background: transparent;
+    color: var(--encre-sourde);
+}
+
+.tut-transition--barree .tut-transition__nom {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+}
+
+.tut-transition__nom {
+    font-family: var(--police-nombre);
+    font-size: 0.85rem;
+    font-weight: 600;
+    /* `break-word` et jamais `anywhere` : la leçon mesurée de la charte.
+       `anywhere` entre dans le calcul de largeur minimale et autorise le
+       navigateur à écraser la ligne jusqu'à une lettre. */
+    overflow-wrap: break-word;
+}
+
+.tut-transition__vers { color: var(--encre-sourde); font-size: 0.82rem; }
+
+/* La marque de ce qui est franchi par le temps seul, et de ce qui ne revient
+   pas. Un mot, pas un pictogramme : un lecteur d'écran lit les deux. */
+.tut-marque {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--encre-sourde);
+    border: 1px solid var(--filet);
+    border-radius: var(--rayon-pastille);
+    padding: 0 0.45em;
+    white-space: nowrap;
+    flex: none;
+}
+
+/* ─── 5. Le code lu sur le disque ────────────────────────────────────────── */
+
+/* Un extrait de configuration ne se redimensionne pas : son indentation EST
+   son sens. Il défile donc horizontalement dans sa zone, et jamais la page. */
+.tut-source {
+    margin: 0.75rem 0;
+    border: 1px solid var(--filet);
+    border-radius: var(--rayon);
+    background: var(--papier-creux);
+    overflow: hidden;
+    min-width: 0;
+}
+
+.tut-source__entete {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: space-between;
+    padding: 0.4rem 0.7rem;
+    border-bottom: 1px solid var(--filet);
+    font-family: var(--police-nombre);
+    font-size: 0.76rem;
+    color: var(--encre-sourde);
+}
+
+.tut-source pre {
+    margin: 0;
+    padding: 0.7rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    font-family: var(--police-nombre);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    tab-size: 4;
+}
+
+/* L'expression de garde telle que le moteur la rend. Elle est rendue en bloc
+   et non dans le fil du texte : ce qui compte est qu'on puisse la comparer
+   membre par membre avec le tableau qui suit. */
+.tut-expression {
+    margin: 0.5rem 0;
+    padding: 0.6rem 0.7rem;
+    border-left: 3px solid var(--filet-appuye);
+    background: var(--papier-creux);
+    font-family: var(--police-nombre);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    overflow-wrap: break-word;
+}
+
+/* ─── 6. Les verbatim arabes ─────────────────────────────────────────────── */
+
+/* La charte porte déjà `.arabe`, avec son `unicode-bidi: isolate`. Ici on
+   n'ajoute que le cadre : un verbatim est une citation, il se détache. */
+.tut-verbatim {
+    margin: 0.35rem 0;
+    padding: 0.4rem 0.6rem;
+    border-right: 3px solid var(--filet-appuye);
+    background: var(--papier-creux);
+    font-size: 1.1em;
+    /* Le filet est à DROITE parce que le texte commence à droite : un filet
+       à gauche sur un bloc arabe se retrouve derrière la fin de la phrase. */
+}
+
+/* ─── 7. L'alerte d'une règle non tranchée ───────────────────────────────── */
+
+/* `LOI.md` § 0 : une règle INCERTAINE alerte au lieu de conclure. L'alerte
+   est ACHROMATIQUE, et c'est une décision : le degré est déjà porté par le
+   filet et la trame du bloc `.regle--incertain`, et le rouge, s'il venait
+   ici, voudrait dire deux choses — « non tranché » et « délai expiré ». */
+.tut-alerte {
+    margin: 0.5rem 0 0;
+    padding: 0.4rem 0.6rem;
+    border: 1px dashed var(--degre-trait);
+    border-radius: var(--rayon);
+    font-size: 0.85rem;
+    color: var(--encre);
+}
+
+.tut-alerte strong {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.72rem;
+}
+
+/* ─── 8. Les tableaux étroits ────────────────────────────────────────────── */
+
+/* Dans un volet de grille, un tableau de deux colonnes tient à 375 px si la
+   première ne prend pas toute la place. */
+.tut-fiche th[scope="row"] { width: 42%; font-weight: 400; color: var(--encre-sourde); }
+.tut-fiche td { font-size: 0.9rem; }
+
+/* ─── Les signatures de méthode, empilées ─────────────────────────────────
+   Un couple « signature → valeur » n'est pas un tableau : mesuré à 375 px,
+   `joursRestantsSurLeDelaiPenal()` en chasse fixe fait 255 px et portait la
+   largeur minimale d'un tableau de deux colonnes à 346 px dans une colonne de
+   309, ce qui faisait déborder la page de quatre pixels. La charte interdit
+   `overflow-wrap: anywhere`, qui aurait écrasé les colonnes pour sauver
+   celle-là. Empilée, chaque signature dispose de toute la largeur. */
+.tut-predicats { margin: 0.75rem 0; }
+
+.tut-predicats dt {
+    margin-top: 0.6rem;
+    overflow-wrap: break-word;
+}
+
+.tut-predicats dd {
+    margin: 0.1rem 0 0;
+    padding-left: 1rem;
+    border-left: 1px solid var(--filet);
+    font-size: 0.9rem;
+}
+
+/* Le tableau des conjonctions : une ligne par membre de la garde. La colonne
+   du membre est en mono — c'est du code — et la valeur reprend `.oui` /
+   `.non` de la charte. */
+.tut-conjonction td:first-child {
+    font-family: var(--police-nombre);
+    font-size: 0.8rem;
+    overflow-wrap: break-word;
+}
+
+.tut-conjonction tr:has(.non) { background: var(--papier-creux); }
+
+/* ─── 9. Les renvois ─────────────────────────────────────────────────────── */
+
+/* Un renvoi au dossier de règles, et non la valeur recopiée. C'est la
+   consigne du projet : une valeur recopiée dans un gabarit dérive, un renvoi
+   reste juste. */
+.tut-renvoi {
+    display: inline-block;
+    font-family: var(--police-nombre);
+    font-size: 0.76rem;
+    color: var(--encre-sourde);
+    border-bottom: 1px dotted var(--filet-appuye);
+    white-space: nowrap;
+}
+
+.tut-renvois {
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+    font-size: 0.82rem;
+}
+
+/* ─── 10. Les deux substrats, l'impression, le contraste forcé ───────────── */
+
+/* Rien à faire pour la nuit : aucune couleur n'est écrite dans ce fichier,
+   donc tout suit les jetons redéfinis par `tasswiya.css`.
+   `.tut-cran[aria-current]` compris, qui inverse encre et papier. */
+
+@media print {
+    /* La commande d'horloge ne sert à rien sur papier : elle n'a plus de
+       cran à cliquer, et elle mangerait un tiers de la première page. */
+    .tut-commande, .tut-sommaire { display: none; }
+
+    .tut-deux { display: block; }
+    .tut-volet { break-inside: avoid; margin-bottom: 1rem; }
+
+    /* Un extrait de configuration imprimé doit être entier : on retire le
+       défilement, quitte à ce que les lignes se replient. */
+    .tut-source pre { overflow: visible; white-space: pre-wrap; }
+
+    /* Les deux signaux qui portent du sens par du fond : on les force, et
+       eux seuls, comme la charte force les blocs de règles. Appliquer
+       `print-color-adjust: exact` largement gâcherait la page entière. */
+    .tut-transition, .tut-cran[aria-current="true"] { print-color-adjust: exact; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Les seules transitions de ce fichier sont des changements de fond au
+       survol. Elles sont retirées plutôt que raccourcies : une animation
+       « plus courte » reste une animation. */
+    .tut-cran { transition: none; }
+}
+
+@media (forced-colors: active) {
+    /* En contraste forcé, les fonds sont remplacés par ceux du système et ne
+       distinguent plus rien. Les deux canaux qui survivent sont le FILET et
+       le TEXTE RAYÉ — c'est précisément pour cela que la transition barrée ne
+       repose pas sur son fond. */
+    .tut-transition { border-left-color: currentColor; }
+    .tut-transition--barree { border-left-style: dashed; }
+    .tut-marque, .tut-cran { border-color: currentColor; }
+}

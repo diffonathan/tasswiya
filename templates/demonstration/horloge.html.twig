@@ -1,0 +1,316 @@
+{% extends 'base.html.twig' %}
+
+{% block titre %}Horloge de démonstration — Tasswiya{% endblock %}
+
+{#
+   LE MOMENT QU'ON FILME.
+
+   On pousse l'horloge. Le dossier bascule tout seul en « délai expiré ». Sur
+   le graphe d'états du dossier, la transition se barre. PERSONNE N'A CLIQUÉ
+   SUR « EXPIRER » — ce bouton n'existe pas et ne peut pas exister : la garde
+   de `expirer_delai` ne consulte que l'horloge injectée.
+
+   Et la preuve que la règle est tenue par la machine et non par la mise en
+   scène est le COUPLE de boutons : le saut égal au délai restant du dossier
+   LE PLUS PROCHE de son échéance ne fait basculer AUCUN dossier, et un jour
+   de plus en fait basculer un — zéro puis un, la plus petite différence
+   observable. Ces nombres sont CALCULÉS sur la donnée par le contrôleur, pas
+   écrits dans ce gabarit : si le jeu de démonstration change, les boutons
+   changent avec lui.
+#}
+{% block contenu %}
+    <h1>Horloge de démonstration</h1>
+
+    {# ⚠ L'AVERTISSEMENT QUI EMPÊCHE DE PRENDRE CET ÉCRAN POUR UN OUTIL.
+       Il est en tête, avant les boutons, et pas en note de bas de page. #}
+    <div class="encart encart--demonstration">
+        <h3>Ceci n'est pas une fonctionnalité</h3>
+        <p>
+            Cet écran existe pour <strong>montrer</strong> une règle de droit
+            en train de s'appliquer, pas pour administrer des dossiers. Le
+            décalage est <strong>global à l'installation</strong> : deux
+            visiteurs partagent le même présent. C'est ce qu'il faut pour une
+            démonstration — l'écran et le terminal doivent raconter la même
+            histoire — et c'est inacceptable pour un produit.
+        </p>
+        <p>
+            On ne peut pas « se placer au 14 mars » : <strong>l'horloge avance,
+            elle ne se choisit pas</strong>. Choisir une date permettrait de
+            fabriquer un dossier pour une date choisie, ce qu'une démonstration
+            ne doit pas pouvoir faire.
+        </p>
+        <p>
+            Et <strong>aucune donnée n'est antidatée</strong>. Le dossier ne
+            vieillit pas : c'est le présent qui avance. La différence est tout
+            le sujet — antidater ferait mentir le dossier, déplacer le présent
+            fait vieillir une situation vraie.
+        </p>
+    </div>
+
+    {# ─── Les comptes rendus de la dernière passe ─────────────────────── #}
+    {% for passe in app.flashes('passe') %}
+        <div class="encart encart--passe">
+            <h3>Passe d'expiration</h3>
+            <p>
+                Horloge poussée de <span class="montant-neutre">{{ passe.jours }}</span> jour(s) ;
+                décalage total <span class="montant-neutre">{{ passe.decalage }}</span> jour(s).
+            </p>
+            <p>
+                <span class="montant-neutre">{{ passe.examines }}</span> dossier(s) examiné(s),
+                <strong><span class="montant-neutre">{{ passe.bascules }}</span> basculé(s)</strong>
+                en « délai expiré » au seul passage du temps,
+                <span class="montant-neutre">{{ passe.collisions }}</span> collision(s).
+            </p>
+            {% if passe.bascules == 0 %}
+                <p>
+                    <strong>Rien n'a basculé, et c'est un résultat.</strong> La
+                    garde temporelle a répondu que les délais couraient encore.
+                    Aucun bouton de cet écran ne peut passer outre.
+                </p>
+            {% endif %}
+            <p class="sourd">
+                Ces chiffres viennent de <code>App\Workflow\ExpirateurDeDelais</code>,
+                le même service que la commande
+                <code>tasswiya:faire-expirer-les-delais</code> appelle. La
+                démonstration ne prend aucun raccourci que la production
+                n'aurait pas.
+            </p>
+        </div>
+    {% endfor %}
+
+    {% for message in app.flashes('remise') %}
+        <div class="encart encart--passe"><p>{{ message }}</p></div>
+    {% endfor %}
+
+    {% for message in app.flashes('refus') %}
+        <div class="encart encart--refus"><p>{{ message }}</p></div>
+    {% endfor %}
+
+    {# ─── L'état de l'horloge ─────────────────────────────────────────── #}
+    <h2>Le présent de ce logiciel</h2>
+
+    <table>
+        <tbody>
+            <tr>
+                <th scope="row">Horloge injectée</th>
+                <td><code>{{ classeDHorloge }}</code></td>
+            </tr>
+            {% if horlogeDeDemonstration %}
+                <tr>
+                    <th scope="row">Temps réel</th>
+                    <td>{{ horlogeDeDemonstration.instantReel|date('d/m/Y H:i') }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Décalage appliqué</th>
+                    <td>
+                        <span class="montant-neutre">{{ horlogeDeDemonstration.decalageEnJours }}</span> jour(s)
+                        {% if horlogeDeDemonstration.temporiseePourLaDemonstration %}
+                            <span class="jalon jalon--perdu">démonstration en cours</span>
+                        {% else %}
+                            <span class="jalon jalon--regle">temps réel</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endif %}
+            <tr>
+                <th scope="row">Présent utilisé par les cinq horloges</th>
+                <td><strong>{{ maintenant|date('d/m/Y H:i') }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% if horlogeDeDemonstration is null %}
+        <p>
+            L'horloge injectée n'est pas celle de la démonstration : ce
+            conteneur ne permet pas de déplacer le temps, et les réglages
+            ci-dessous sont donc masqués. C'est le cas en environnement de
+            test, où le conteneur impose une <code>MockClock</code> figée pour
+            que la suite de tests reste maîtresse de son temps.
+        </p>
+    {% else %}
+        {# ─── CE QUI ENCADRE LA DÉMONSTRATION ─────────────────────────── #}
+        {% if delais is not empty %}
+            <div class="encart">
+                <h3>Le dossier le plus proche de son échéance</h3>
+                <p>
+                    <a href="{{ path('dossier_detail', { reference: delais.plusProche.reference }) }}">{{ delais.plusProche.reference }}</a>
+                    a <span class="montant-neutre">{{ delais.joursMinimum }}</span> jour(s)
+                    devant lui, depuis l'écédar du
+                    {{ delais.plusProche.dateEcedar|date('d/m/Y') }}.
+                    {% if delais.nombreAuMinimum > 1 %}
+                        <span class="montant-neutre">{{ delais.nombreAuMinimum }}</span> dossiers
+                        sont ex æquo à cette échéance et basculeront ensemble.
+                    {% endif %}
+                </p>
+                <p>
+                    C'est sur lui que les deux sauts du milieu sont calculés.
+                    Un saut de
+                    <span class="montant-neutre">{{ delais.joursMinimum }}</span>
+                    jour(s) l'amène <strong>exactement</strong> à son échéance,
+                    et la garde teste « maintenant <em>strictement après</em>
+                    l'échéance » : <strong>rien ne bascule</strong>. Un jour de
+                    plus, et il bascule. Zéro puis un — la plus petite
+                    différence observable.
+                </p>
+                <p class="sourd">
+                    Le contrôleur ne connaît aucune de ces références : il lit
+                    les dossiers dont un délai pénal court et en déduit les
+                    bornes. Écrire une référence en dur ferait de cet écran une
+                    mise en scène — il montrerait le dossier qu'on lui aurait
+                    dit de montrer, et les nombres des boutons seraient des
+                    affirmations au lieu d'être des mesures.
+                </p>
+            </div>
+        {% else %}
+            <div class="encart encart--refus">
+                <h3>Aucun délai pénal ne court</h3>
+                <p>
+                    Aucun dossier n'est dans une position où le délai de
+                    l'article 325 al. 6 court : il n'y a donc rien à faire
+                    expirer, et les sauts calculés ne sont pas proposés.
+                    Rechargez le jeu fictif
+                    (<code>tasswiya:charger-les-donnees-de-demonstration</code>),
+                    qui remet aussi l'horloge au temps réel.
+                </p>
+            </div>
+        {% endif %}
+
+        {# ─── LE RÉGLAGE ──────────────────────────────────────────────── #}
+        <h2>Pousser l'horloge</h2>
+
+        <form method="post" action="{{ path('demonstration_avancer') }}" class="reglage">
+            <input type="hidden" name="_jeton" value="{{ csrf_token('demonstration') }}">
+
+            <fieldset class="reglage__sauts">
+                <legend>Avancer de</legend>
+                {% for jours, propos in sauts %}
+                    <p class="reglage__saut">
+                        {# Le bouton PLEIN est celui qui fait basculer, et il
+                           est désigné par la donnée : c'est le dernier saut de
+                           la liste, soit le délai du pivot plus un jour. #}
+                        <button type="submit" name="jours" value="{{ jours }}"
+                                class="bouton {{ (delais is not empty and jours == delais.joursMinimum + 1) ? '' : 'bouton--discret' }}">
+                            + {{ jours }} jour{{ jours > 1 ? 's' : '' }}
+                        </button>
+                        <span class="sourd">{{ propos }}</span>
+                    </p>
+                {% endfor %}
+            </fieldset>
+
+            <p class="reglage__libre">
+                <label for="jours-libre">Ou un nombre de jours :</label>
+                <input type="number" id="jours-libre" name="jours" min="1"
+                       max="{{ decalageMaximal }}" step="1"
+                       value="{{ delais is not empty ? delais.joursMinimum + 1 : 1 }}" inputmode="numeric">
+                <button type="submit" class="bouton bouton--discret">Avancer</button>
+            </p>
+        </form>
+
+        <form method="post" action="{{ path('demonstration_reinitialiser') }}">
+            <input type="hidden" name="_jeton" value="{{ csrf_token('demonstration') }}">
+            <button type="submit" class="bouton bouton--discret">Revenir au temps réel</button>
+            <span class="sourd">
+                Remettre l'horloge ne défait <strong>aucune</strong> bascule :
+                la machine à états n'a pas de transition de retour depuis
+                « délai expiré », et c'est un choix de droit — un délai expiré
+                ne se dé-expire pas.
+            </span>
+        </form>
+    {% endif %}
+
+    {# ─── CE QUE LES DOSSIERS DISENT, MAINTENANT ──────────────────────── #}
+    <h2>Les dossiers sous ce présent</h2>
+    <p class="sourd">
+        L'horloge du délai pénal (H3) de chaque dossier, recalculée sur le
+        présent ci-dessus. C'est cette colonne qui change quand on pousse.
+    </p>
+
+    <div class="defilant defilant--empilable">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Dossier</th>
+                    <th scope="col">Position</th>
+                    <th scope="col">Délai pénal (H3)</th>
+                    <th scope="col">Part de l'écédar du</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for urgence in urgences %}
+                {% set dossier = urgence.dossier %}
+                {% set h3 = urgence.toutesLesHorloges.H3 ?? null %}
+                <tr>
+                    <th scope="row">
+                        <a href="{{ path('dossier_detail', { reference: dossier.reference }) }}">{{ dossier.reference }}</a>
+                    </th>
+                    <td data-libelle="Position"><span class="jalon jalon--{{ ton_etat(dossier.etat) }}">{{ libelle_etat(dossier.etat) }}</span></td>
+                    <td data-libelle="Délai pénal (H3)">
+                        {% if h3 is null %}
+                            {# Pas « 0 jour » : AUCUN délai. L'horloge n'a pas
+                               de point de départ, elle n'existe pas. #}
+                            <span class="sourd">aucun délai — pas d'écédar notifié</span>
+                        {% elseif h3.estDepassee(aujourdHui) %}
+                            <span class="jalon jalon--perdu">échu depuis {{ (h3.joursRestants(aujourdHui) * -1) }} j</span>
+                        {% else %}
+                            <span class="jalon jalon--en-cours">{{ h3.joursRestants(aujourdHui) }} j</span>
+                        {% endif %}
+                    </td>
+                    <td data-libelle="Part de l'écédar du">
+                        {% if h3 %}
+                            {{ h3.depart|date('d/m/Y') }}
+                            <span class="sourd">— échéance au {{ h3.echeance|date('d/m/Y') }}</span>
+                        {% else %}
+                            <span class="sourd">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="4">
+                        Aucun dossier. Chargez le jeu fictif :
+                        <code>docker compose exec php bin/console tasswiya:charger-les-donnees-de-demonstration</code>.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# ─── POURQUOI CECI EST UNE PREUVE ET NON UNE MISE EN SCÈNE ───────── #}
+    <div class="encart">
+        <h3>Ce que ce bouton prouve</h3>
+        <p>
+            La transition <code>expirer_delai</code> n'a <strong>aucune garde
+            de contenu</strong> dans <code>config/packages/workflow.yaml</code> :
+            elle n'est gardée que par
+            <code>App\Workflow\EcouteurDeGardesTemporelles</code>, qui ne
+            consulte que l'horloge injectée. Il n'existe donc nulle part de
+            bouton « expirer », et il ne peut pas en exister : aucun rôle,
+            aucune route, aucun drapeau de ligne de commande ne franchit cette
+            transition avant le terme.
+        </p>
+        <p>
+            C'est pourquoi les deux derniers sauts vont par paire.
+            {% if delais is not empty %}
+                Le saut de
+                <span class="montant-neutre">{{ delais.joursMinimum }}</span>
+                jour(s) amène le dossier le plus proche EXACTEMENT à son
+                échéance et ne le fait pas basculer : l'échéance atteinte n'est
+                pas l'échéance dépassée. Un jour de plus, et il bascule.
+            {% endif %}
+            Si cet écran pouvait forcer l'expiration, les deux sauts
+            donneraient le même résultat.
+        </p>
+        <p class="sourd">
+            Vérifiable en ligne de commande, sans navigateur :
+            <code>bin/console tasswiya:faire-expirer-les-delais</code> imprime
+            le même décompte, et
+            <code>bin/console workflow:dump dossier_penal</code> rend le graphe.
+        </p>
+    </div>
+
+    {{ include('partiel/_regle.html.twig', {
+        titre: 'Comment ce logiciel compte les jours',
+        regle: regle_de_comptage(reglesDeDelai),
+    }, with_context = false) }}
+{% endblock %}

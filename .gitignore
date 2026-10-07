@@ -1,0 +1,22 @@
+###> symfony ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/var/
+/vendor/
+/public/bundles/
+###< symfony ###
+
+###> phpunit ###
+/.phpunit.cache/
+/phpunit.xml
+###< phpunit ###
+
+# Les PDF des sources officielles sont lourds (environ 5 Mo à eux deux) mais
+# ils sont la PREUVE de chaque règle affichée : un dépôt où l'on ne peut pas
+# rejouer un `grep` sur le Bulletin officiel ne vaut rien. Ils restent donc
+# versionnés, et c'est un choix.
+
+# Windows
+Thumbs.db
+desktop.ini

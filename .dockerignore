@@ -1,0 +1,24 @@
+# Ce qui ne doit JAMAIS entrer dans une image.
+#
+# `COPY . .` copie tout, y compris ce qu'on a pris soin de ne pas versionner.
+# Sans ce fichier, le `.env.local` du poste se retrouverait dans l'image de
+# production, lisible par quiconque obtient l'image. Le `.gitignore` ne protège
+# pas de Docker.
+.env.local
+.env.*.local
+
+# Les dépendances sont installées DANS l'image, pour la bonne plateforme.
+vendor/
+
+# Les caches du poste référencent des paquets de développement absents de
+# l'image de production.
+var/
+.phpunit.cache/
+
+# Inutile à l'exécution, et volumineux : les deux PDF des sources pèsent
+# environ 5 Mo et ne sont lus par aucun code — ils servent à VÉRIFIER une
+# règle, pas à la faire tourner.
+docs/sources/
+.git/
+tests/
+docker-compose.yml

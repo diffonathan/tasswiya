@@ -1,0 +1,75 @@
+doctrine:
+    dbal:
+        url: '%env(resolve:DATABASE_URL)%'
+        # Le pilote ne devine pas la version du serveur : sans elle, Doctrine
+        # interroge la base AU PREMIER APPEL pour la découvrir, ce qui ajoute
+        # un aller-retour à la première requête de chaque processus. La version
+        # est dans DATABASE_URL (serverVersion=16).
+        profiling_collect_backtrace: '%kernel.debug%'
+        use_savepoints: true
+
+        # POURQUOI CE FILTRE : sans lui, `doctrine:schema:validate` est
+        # DÉFINITIVEMENT ROUGE, et une commande de vérification qui est
+        # toujours rouge ne vérifie plus rien.
+        #
+        # La table `messenger_messages` est créée par la file Messenger
+        # (transport Doctrine, `auto_setup=1`) et reprise dans la migration,
+        # mais aucune entité ne la décrit — c'est de l'infrastructure, pas du
+        # domaine. Doctrine la voit donc en base sans la trouver dans la
+        # cartographie et conclut « schema is not in sync », en proposant
+        # `DROP TABLE messenger_messages` : exactement le contraire de ce
+        # qu'il faut faire.
+        #
+        # Mesuré le 7 octobre 2026, avant ce filtre :
+        #   bin/console doctrine:schema:validate  → [ERROR] not in sync
+        #   bin/console doctrine:schema:update --dump-sql → DROP TABLE messenger_messages;
+        schema_filter: '~^(?!messenger_messages)~'
+
+    orm:
+        auto_generate_proxy_classes: true
+        enable_lazy_ghost_objects: true
+        report_fields_where_declared: true
+        validate_xml_mapping: true
+        naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+        identity_generation_preferences:
+            Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        auto_mapping: true
+        mappings:
+            App:
+                # DATA MAPPER, et c'est l'opposé d'ActiveRecord : l'entité ne
+                # sait pas qu'une base existe. Elle ne sait ni s'enregistrer,
+                # ni se charger ; l'EntityManager tient le registre des objets
+                # et le repository les requêtes. Une entité se teste donc sans
+                # base, et c'est ce qui rend les règles de délai testables.
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Entity'
+                prefix: 'App\Entity'
+                alias: App
+
+when@test:
+    doctrine:
+        dbal:
+            # Un suffixe par processus de test : PHPUnit peut paralléliser, et
+            # deux processus sur la même base se détruisent mutuellement.
+            dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            auto_generate_proxy_classes: false
+            proxy_dir: '%kernel.build_dir%/doctrine/orm/Proxies'
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

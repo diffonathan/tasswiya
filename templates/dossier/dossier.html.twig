@@ -1,0 +1,445 @@
+{% extends 'base.html.twig' %}
+
+{% block titre %}{{ dossier.reference }} — Tasswiya{% endblock %}
+
+{#
+   L'ÉCRAN DU PROJET.
+
+   Il doit montrer ENSEMBLE quatre choses qui, séparées, perdent leur sens :
+
+     1. les cinq horloges avec leur point de départ NOMMÉ ;
+     2. le graphe d'états, avec les transitions barrées et LE POURQUOI ;
+     3. le contrôle judiciaire en cours, bracelet compris ;
+     4. les montants, en or — et le refus de chiffrer quand l'assiette manque.
+
+   L'ordre des sections n'est pas décoratif. Les horloges viennent d'abord
+   parce que c'est la chose que cet écran existe pour corriger : la presse
+   résume cinq délais en un, et le fait partir du rejet du chèque. Le contrôle
+   judiciaire vient juste après les horloges, et non à la fin, parce qu'il
+   change le sens du nombre affiché au-dessus : trente jours sous bracelet
+   électronique ne sont pas trente jours de grâce.
+#}
+{% block contenu %}
+    <p class="fil"><a href="{{ path('dossiers_liste') }}">Dossiers</a> &rsaquo; {{ dossier.reference }}</p>
+
+    <h1>{{ dossier.reference }}</h1>
+
+    <p class="parties">
+        <span class="sourd">Tireur</span> {{ dossier.tireur.nomFictif }}
+        <span class="sourd">&rarr; bénéficiaire</span> {{ dossier.beneficiaire.nomFictif }}
+        <br>
+        <span class="sourd">
+            Chèque {{ dossier.cheque.referenceFictive }}, émis le
+            {{ dossier.cheque.dateEmissionPorteeSurLeCheque|date('d/m/Y') }}
+            {{ dossier.cheque.lieuEmission.value == 'etranger' ? 'à l\'étranger' : 'au Maroc' }}.
+            Données strictement fictives.
+        </span>
+    </p>
+
+    <p>
+        <span class="jalon jalon--{{ ton_etat(etat) }}">{{ libelle_etat(etat) }}</span>
+        {% if urgence.sousControleJudiciaire %}
+            <span class="jalon jalon--perdu">sous contrôle judiciaire</span>
+        {% endif %}
+        {% if urgence.etatTerminalAuPenal %}
+            <span class="jalon jalon--regle">terminal au pénal</span>
+        {% endif %}
+    </p>
+
+    {% if horlogeDeDemonstration %}
+        <div class="encart encart--demonstration">
+            <h3>Horloge de démonstration en cours</h3>
+            <p>
+                Le présent est poussé de
+                <strong>{{ horlogeDeDemonstration.decalageEnJours }} jour(s)</strong>
+                au-delà du temps réel
+                ({{ horlogeDeDemonstration.instantReel|date('d/m/Y') }}
+                &rarr; {{ aujourdHui|date('d/m/Y') }}).
+                Aucune date de ce dossier n'a été antidatée : le dossier ne
+                vieillit pas, c'est le présent qui avance.
+                <a href="{{ path('demonstration') }}">Réglage de l'horloge</a>.
+            </p>
+        </div>
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       1. L'HORLOGE DU PROJET, MISE EN AVANT — ET SEULEMENT ELLE
+       ═══════════════════════════════════════════════════════════════════ #}
+    {% if 'H3' in horlogesDuDossier|keys %}
+        {% set h3 = horlogesDuDossier.H3 %}
+        {% set restants = h3.joursRestants(aujourdHui) %}
+        <div class="compteur {{ h3.estDepassee(aujourdHui) ? 'compteur--echu' : '' }}">
+            <p class="compteur__valeur">
+                <span class="montant-neutre">{{ restants < 0 ? (restants * -1) : restants }}</span>
+                <span class="compteur__unite">
+                    {% set affiche = restants < 0 ? (restants * -1) : restants %}
+                    {% set pluriel = affiche > 1 ? 's' : '' %}
+                    {{ h3.estDepassee(aujourdHui)
+                        ? 'jour' ~ pluriel ~ ' depuis l\'expiration'
+                        : 'jour' ~ pluriel ~ ' restant' ~ pluriel }}
+                </span>
+            </p>
+            <p class="compteur__propos">
+                Délai de régularisation pénale, <strong>{{ dureeEffectiveDuDelaiPenal }} jours à compter
+                de l'écédar du {{ h3.depart|date('d/m/Y') }}</strong> — et non du rejet du chèque, ni de
+                la présentation, ni de la plainte. Échéance au
+                <strong>{{ h3.echeance|date('d/m/Y') }}</strong>.
+            </p>
+            <p class="compteur__arabe arabe" lang="ar" dir="rtl">خلال أجل ثلاثين (30) يوما من تاريخ هذا الإعذار</p>
+            <p class="sourd">art. 325 al. 6 nouveau (loi n° 71.24) — traduction de travail, non opposable</p>
+        </div>
+    {% else %}
+        <div class="compteur compteur--absent">
+            <p class="compteur__valeur"><span class="compteur__unite">Aucun délai de régularisation pénale ne court</span></p>
+            <p class="compteur__propos">
+                L'horloge des trente jours part de la date de l'écédar, et
+                aucun écédar n'est notifié sur ce dossier. Ce n'est pas une
+                échéance lointaine : <strong>il n'y a pas d'échéance</strong>.
+            </p>
+        </div>
+        {% if etat.value == 'convocation_sans_effet' %}
+            {{ include('partiel/_regle.html.twig', {
+                regle: regle_affichee('tireur_introuvable'),
+            }, with_context = false) }}
+        {% endif %}
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       2. LES CINQ HORLOGES
+       ═══════════════════════════════════════════════════════════════════ #}
+    {{ include('partiel/_horloges.html.twig', {
+        horloges: horlogesDuDossier,
+        aujourdHui: aujourdHui,
+        reglesDeDelai: reglesDeDelai,
+    }, with_context = false) }}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       3. LE CONTRÔLE JUDICIAIRE — juste après les horloges, et non à la fin
+       ═══════════════════════════════════════════════════════════════════ #}
+    <h2>Le contrôle judiciaire</h2>
+
+    {% if dossier.mesuresDeControleJudiciaire is not empty %}
+        <p>
+            {{ dossier.mesuresDeControleJudiciaire|length }} mesure(s) enregistrée(s) sur ce dossier
+            {% if urgence.sousControleJudiciaire %}
+                — <strong>en cours dans la position actuelle</strong>.
+            {% else %}
+                — <span class="sourd">la position actuelle du dossier n'implique plus de contrôle
+                judiciaire au titre de l'article 325 al. 7.</span>
+            {% endif %}
+        </p>
+        <ul class="mesures">
+            {% for mesure in dossier.mesuresDeControleJudiciaire %}
+                <li class="mesures__item">{{ mesure }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>
+            Aucune mesure de contrôle judiciaire n'est enregistrée. Tant qu'il
+            n'y en a pas, la transition <code>notifier_ecedar</code> reste
+            barrée : l'article 325 al. 7 est à l'impératif, et un écédar sans
+            contrôle judiciaire décrirait un délai de grâce qui n'existe pas.
+        </p>
+    {% endif %}
+
+    {{ include('partiel/_regle.html.twig', {
+        regle: regle_affichee('controle_judiciaire'),
+    }, with_context = false) }}
+    {{ include('partiel/_regle.html.twig', {
+        regle: regle_affichee('mesures_detaillees'),
+    }, with_context = false) }}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       4. LE GRAPHE D'ÉTATS ET LES TRANSITIONS BARRÉES
+       ═══════════════════════════════════════════════════════════════════ #}
+    {{ include('partiel/_graphe.html.twig', {
+        etat: etat,
+        places: places,
+        transitions: transitions,
+    }, with_context = false) }}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       5. LA PROROGATION — et ce que le quota est vraiment
+       ═══════════════════════════════════════════════════════════════════ #}
+    <h2>La prorogation</h2>
+
+    <table>
+        <tbody>
+            <tr>
+                <th scope="row">Prorogations accordées</th>
+                <td>
+                    <span class="montant-neutre">{{ dossier.nombreDeProlongationsAccordees }}</span>
+                    sur <span class="montant-neutre">{{ dossier.quotaProlongationsDeCeLogiciel }}</span>
+                    autorisée(s) <strong>par ce logiciel</strong>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">Délai initial</th>
+                <td><span class="montant-neutre">{{ dossier.dureeDelaiInitialEnJours }}</span> jours</td>
+            </tr>
+            <tr>
+                <th scope="row">Délai effectif</th>
+                <td>
+                    <span class="montant-neutre">{{ dureeEffectiveDuDelaiPenal }}</span> jours
+                    <span class="sourd">(délai initial + prorogations accordées)</span>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">Bénéficiaire</th>
+                <td>
+                    {% if dossier.beneficiaireDisponible %}
+                        <span class="oui">en situation de donner son accord</span>
+                    {% else %}
+                        <span class="non">{{ dossier.disponibiliteBeneficiaire.value }}</span>
+                        {% if dossier.disponibiliteBeneficiaire.explicationDuBlocage %}
+                            <br><span class="sourd">{{ dossier.disponibiliteBeneficiaire.explicationDuBlocage }}</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    {# LA RÈGLE DE DROIT D'ABORD, LE CHOIX PRODUIT ENSUITE. L'ordre compte :
+       si le quota venait en premier, un lecteur pressé lirait « la loi limite
+       à une prorogation », qui est exactement la phrase à ne jamais écrire. #}
+    {{ include('partiel/_regle.html.twig', {
+        titre: 'Ce que la loi ouvre',
+        regle: regle_affichee('prorogation_sans_plafond'),
+    }, with_context = false) }}
+
+    {{ include('partiel/_regle.html.twig', {
+        titre: 'Ce que ce logiciel autorise, et qui n\'est pas la même chose',
+        regle: regle_de_blocage('quota_prolongations_epuise'),
+    }, with_context = false) }}
+
+    {% if dossier.prolongations is not empty %}
+        <h3>Les prorogations de ce dossier</h3>
+        <div class="defilant defilant--empilable">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Demandée le</th>
+                        <th scope="col">Durée</th>
+                        <th scope="col">Décision du parquet</th>
+                        <th scope="col">Accord du bénéficiaire</th>
+                        <th scope="col">État</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for prolongation in dossier.prolongations %}
+                    <tr>
+                        <td data-libelle="Demandée le">{{ prolongation.demandeeLe|date('d/m/Y') }}</td>
+                        <td data-libelle="Durée"><span class="montant-neutre">{{ prolongation.dureeEnJours }}</span> j</td>
+                        {# LES DEUX CONDITIONS, séparées : elles sont cumulatives
+                           ET asymétriques. Le parquet peut refuser même si le
+                           bénéficiaire accepte, et l'accord du bénéficiaire est
+                           sans effet si le parquet refuse. #}
+                        <td data-libelle="Décision du parquet">{{ prolongation.decisionDuParquetEnregistree ? '<span class="oui">enregistrée</span>'|raw : '<span class="non">absente</span>'|raw }}</td>
+                        <td data-libelle="Accord du bénéficiaire">{{ prolongation.accordDuBeneficiaireEnregistre ? '<span class="oui">enregistré</span>'|raw : '<span class="non">absent</span>'|raw }}</td>
+                        <td data-libelle="État">
+                            {% if prolongation.estAccordee %}
+                                <span class="jalon jalon--regle">accordée le {{ prolongation.accordeeLe|date('d/m/Y') }}</span>
+                            {% else %}
+                                <span class="jalon jalon--en-cours">en attente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if prolongation.mentionSiAuDelaDeLaPratiqueDuParquet %}
+                        <tr><td colspan="5" class="sourd">{{ prolongation.mentionSiAuDelaDeLaPratiqueDuParquet }}</td></tr>
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       6. LES MONTANTS — RÔLE OR, ET RIEN D'AUTRE NE LE PREND
+       ═══════════════════════════════════════════════════════════════════ #}
+    <h2>Les montants</h2>
+    <p class="sourd">
+        Trois amendes distinctes, trois assiettes, trois débiteurs — et il
+        n'existe dans ce logiciel <strong>aucun champ « taux d'amende »</strong>.
+        Le « 2 %, minimum 500 DH, plafond 50 000 DH » qui circule est la fusion
+        de deux amendes qui n'ont ni la même assiette, ni le même débiteur, ni
+        le même effet, et le plancher appartient à une troisième.
+    </p>
+
+    <div class="defilant defilant--empilable">
+        <table class="montants">
+            <thead>
+                <tr>
+                    <th scope="col">Poste</th>
+                    <th scope="col">Assiette</th>
+                    <th scope="col">Estimation</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for montant in montants %}
+                <tr>
+                    <th scope="row">{{ montant.libelle }}</th>
+                    <td data-libelle="Assiette">
+                        {{ montant.assiette }}
+                        {% if montant.mentionDePlancherOuPlafond %}
+                            <br><span class="sourd">{{ montant.mentionDePlancherOuPlafond }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="montant" data-libelle="Estimation">
+                        {% if montant.chiffre %}
+                            {{ montant.enDirhams }}
+                        {% elseif montant.fourchette %}
+                            {# Une fourchette que le texte donne et qu'aucun
+                               calcul ne produit. En prendre le milieu serait
+                               inventer une décision de justice. #}
+                            <span class="montant--indetermine">{{ montant.fourchette }}</span>
+                        {% else %}
+                            {# ⚠ LE REFUS DE CHIFFRER. `.montant--indetermine`
+                               garde la place et la police du montant, pour
+                               qu'on voie qu'il manque — mais pas l'or, parce
+                               qu'il n'y a pas de valeur. #}
+                            <span class="montant--indetermine">assiette indéterminée</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if montant.raisonDeLIndetermination %}
+                    <tr class="montants__raison">
+                        <td colspan="3"><strong>Pourquoi aucun montant :</strong> {{ montant.raisonDeLIndetermination }}</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {{ include('partiel/_regle.html.twig', {
+        regle: regle_affichee('montants_non_opposables'),
+    }, with_context = false) }}
+
+    {% for montant in montants %}
+        {{ include('partiel/_regle.html.twig', {
+            titre: montant.libelle,
+            regle: montant.regle,
+        }, with_context = false) }}
+    {% endfor %}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       7. L'INTERDICTION BANCAIRE — LA SECONDE MACHINE À ÉTATS
+       ═══════════════════════════════════════════════════════════════════ #}
+    <h2>L'interdiction bancaire</h2>
+
+    {% if dossier.interdictionBancaire %}
+        {% set interdiction = dossier.interdictionBancaire %}
+        <p>
+            <span class="jalon jalon--{{ interdiction.etat.value == 'purgee' ? 'regle' : (interdiction.etat.value == 'expiree' ? 'regle' : 'perdu') }}">
+                {{ libelle_etat_interdiction(interdiction.etat) }}
+            </span>
+        </p>
+        <table>
+            <tbody>
+                <tr>
+                    <th scope="row">Incident de paiement</th>
+                    <td>{{ interdiction.dateIncidentDePaiement|date('d/m/Y') }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Rang de l'injonction</th>
+                    <td>
+                        <span class="montant-neutre">{{ interdiction.rangDeLInjonction }}</span>
+                        {# « Rang » et non « récidive » : l'article compte les
+                           injonctions reçues, pas les condamnations. Importer
+                           le mot « récidive » y amènerait une notion pénale que
+                           ce texte ne porte pas. #}
+                        <span class="sourd">— le rang commande le taux de la pénalité de l'art. 314,
+                        et ce n'est pas une récidive au sens pénal</span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Paiement ou provision</th>
+                    <td>{{ interdiction.paiementOuProvisionConstituee ? '<span class="oui">constitué</span>'|raw : '<span class="non">non constitué</span>'|raw }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Pénalité de l'art. 314</th>
+                    <td>{{ interdiction.penaliteArticle314Payee ? '<span class="oui">payée</span>'|raw : '<span class="non">non payée</span>'|raw }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="sourd">
+            Les deux conditions de l'article 313 sont <strong>cumulatives</strong> :
+            la régularisation lève l'interdiction et purge tous ses effets, là où
+            l'expiration des cinq ans la fait seulement tomber.
+        </p>
+    {% else %}
+        <p>
+            Aucune interdiction bancaire n'est enregistrée : aucun incident de
+            paiement n'a été constaté sur ce dossier.
+        </p>
+    {% endif %}
+
+    {{ include('partiel/_regle.html.twig', {
+        regle: regle_affichee('deux_interdictions'),
+    }, with_context = false) }}
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       8. LE JOURNAL DES PIÈCES — pas de date sans son événement
+       ═══════════════════════════════════════════════════════════════════ #}
+    <h2>Le journal des pièces</h2>
+    <p class="sourd">
+        Pas de date saisie sans son événement, et pas d'événement sans sa
+        pièce. C'est ce qui empêche qu'une date d'écédar apparaisse au dossier
+        sans procès-verbal d'audition derrière — et donc qu'une horloge de
+        trente jours parte d'un fait non prouvé.
+    </p>
+
+    <div class="defilant defilant--empilable">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Pièce</th>
+                    <th scope="col">Survenue le</th>
+                    <th scope="col">Référence fictive</th>
+                    <th scope="col">Degré du contenu</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for evenement in dossier.evenements %}
+                <tr>
+                    <th scope="row">{{ evenement.typePiece.value|replace({'_': ' '})|capitalize }}</th>
+                    <td data-libelle="Survenue le">{{ evenement.survenuLe|date('d/m/Y') }}</td>
+                    <td data-libelle="Référence fictive"><code>{{ evenement.referencePieceFictive }}</code></td>
+                    <td data-libelle="Degré du contenu">{{ evenement.degreDeCertitudeDuContenu.value|replace({'_': ' '}) }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4">Aucune pièce au journal.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       9. D'OÙ CET ÉCRAN PARLE
+       ═══════════════════════════════════════════════════════════════════ #}
+    <div class="encart">
+        <h3>Habilitations</h3>
+        <p>
+            Rôle résolu dans ce dossier : <code>{{ roleCourant.value }}</code>.
+            {% if roleCourant.value == 'aucun' %}
+                Aucun utilisateur n'est authentifié — le fournisseur
+                d'utilisateurs de ce projet est en mémoire et vide — donc les
+                transitions gardées par <code>is_granted(...)</code> sont
+                barrées pour <strong>défaut d'habilitation</strong>, et non par
+                une règle de droit. L'écran distingue les deux : une règle
+                s'affiche avec son degré de certitude, une habilitation non.
+            {% endif %}
+        </p>
+        <p class="sourd">
+            Les règles d'habilitation sont dans
+            <code>App\Security\Voter\DossierVoter</code>, et deux d'entre elles
+            traduisent du droit : l'accord à la prorogation est celui
+            <strong>du bénéficiaire</strong> (art. 325 al. 8, « بعد موافقة
+            المستفيد »), et le désistement est celui du plaignant. Le
+            rattachement d'un utilisateur à un dossier passe par une interface
+            remplaçable — un vrai mandat d'avocat ne se prouve pas par une
+            adresse de courriel.
+        </p>
+    </div>
+{% endblock %}

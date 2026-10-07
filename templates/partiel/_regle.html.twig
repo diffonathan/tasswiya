@@ -1,0 +1,78 @@
+{#
+   UNE RÈGLE AFFICHÉE AVEC SON DEGRÉ DE CERTITUDE.
+
+   Ce fragment est le seul endroit du produit qui sait rendre une
+   `App\Domaine\Certitude\RegleAppliquee`. Toutes les règles de tous les écrans
+   passent par ici, et c'est délibéré : un degré de certitude qui s'afficherait
+   à deux endroits finirait par s'afficher de deux manières, et la rampe du
+   plein au pointillé ne se lirait plus.
+
+   ─── LES QUATRE CANAUX, ET POURQUOI AUCUN N'EST UNE COULEUR ──────────────
+
+   Le degré est porté par LE FILET DE GAUCHE (plein / double / tireté /
+   pointillé), LA TRAME DE FOND (rien / rien / hachures / grille de points),
+   LE RETRAIT (sur `choix_produit` seul) et L'ÉTIQUETTE EN MOTS. Pas de
+   couleur, et c'est la décision centrale de la charte : les quatre rôles
+   chromatiques occupent déjà le cercle, et « incertain » devrait alerter donc
+   tirer vers le rouge — qui appartient à « délai expiré ». Un rouge qui
+   voudrait dire deux choses ne dirait plus rien.
+
+   Conséquence : la distinction survit au noir et blanc, au daltonisme et à
+   l'impression, par construction et non par chance. Tout est dans
+   `public/charte/tasswiya.css`, bloc 4.
+
+   ─── CE QUE L'ATTRIBUTION NE DIT JAMAIS ──────────────────────────────────
+
+   Jamais « loi 71-24 » sous une règle qui n'en vient pas. C'est
+   `RegleAppliquee::attribution()` qui décide du texte, et ce gabarit n'écrit
+   rien de lui-même : il n'existe AUCUNE version française officielle de la
+   loi n° 71.24, et attribuer à la loi une règle venue d'une circulaire ou de
+   la doctrine serait une fausse citation.
+
+   Paramètres :
+     regle   — la RegleAppliquee
+     titre   — (optionnel) un chapeau au-dessus de l'énoncé
+#}
+{% set classeDuDegre = 'regle--' ~ regle.degre.value|replace({'_': '-'}) %}
+{% set etiquetteDuDegre = {
+    'etabli':        'Établi',
+    'probable':      'Probable',
+    'incertain':     'Incertain — à vérifier',
+    'choix_produit': 'Choix de ce logiciel, pas du droit',
+}[regle.degre.value] %}
+
+<div class="regle {{ classeDuDegre }}">
+    <span class="regle__degre">{{ etiquetteDuDegre }}</span>
+
+    {% if titre is defined and titre %}
+        <p class="regle__enonce"><strong>{{ titre }}</strong></p>
+    {% endif %}
+
+    <p class="regle__enonce">{{ regle.enonce }}</p>
+
+    {% if regle.arabeSource %}
+        {# `lang` et `dir` sur l'élément, et la classe `.arabe` qui pose
+           `unicode-bidi: isolate`. Sans isolation, un fragment arabe au milieu
+           d'une phrase française emporte la ponctuation voisine du mauvais
+           côté, et une citation d'article se met à mentir sur ses bornes.
+
+           La seule version officielle de la loi n° 71.24 est en arabe : ce
+           verbatim n'est pas un ornement, c'est la source. #}
+        <p class="regle__enonce arabe" lang="ar" dir="rtl">{{ regle.arabeSource }}</p>
+    {% endif %}
+
+    <p class="regle__attribution">
+        {{ regle.attribution }}
+        {% if regle.renvoiLoiMd %}
+            — <span class="renvoi">{{ regle.renvoiLoiMd }}</span>
+        {% endif %}
+    </p>
+
+    {% if regle.exigeUneAlerte %}
+        {# Une règle INCERTAINE alerte au lieu de conclure (LOI.md § 0). Elle
+           ne pilote aucun calcul en silence. #}
+        <p class="regle__alerte"><strong>Ce point n'est pas tranché.</strong>
+            Ce logiciel bloque et le signale plutôt que de présumer une réponse.
+            Faites vérifier par un avocat.</p>
+    {% endif %}
+</div>

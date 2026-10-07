@@ -1,0 +1,138 @@
+{#
+   LES CINQ HORLOGES, AVEC LEUR POINT DE DÉPART NOMMÉ.
+
+   C'est le fragment qui décide si l'écran du dossier réussit ou échoue.
+
+   ─── CE QU'IL DOIT FAIRE VOIR ────────────────────────────────────────────
+
+   Que les délais de ce dossier NE PARTENT PAS DU MÊME ÉVÉNEMENT. Les trente
+   jours de l'article 325 al. 6 partent de l'écédar ; les trois mois de
+   l'article 314 partent de l'injonction bancaire, que la banque envoie dans
+   les deux jours de l'incident. Entre les deux, il y a la plainte et
+   l'instruction du parquet : des semaines, parfois des mois. Les deux délais
+   courent donc EN PARALLÈLE, depuis deux points distincts, et peuvent arriver
+   à échéance à quelques jours d'intervalle sans avoir rien de commun.
+
+   Un écran qui afficherait « délai : 3 jours » sans la colonne « part de »
+   reproduirait l'erreur de la presse en la rendant crédible. C'est pourquoi
+   cette colonne est la DEUXIÈME du tableau et non une info-bulle.
+
+   ─── ET CE QU'IL DOIT FAIRE VOIR DE L'ABSENCE ────────────────────────────
+
+   Les horloges qui ne courent pas sont listées en dessous, avec la raison.
+   Une horloge absente n'est pas une horloge à zéro : c'est une horloge SANS
+   POINT DE DÉPART. Un dossier au stade de la plainte n'a pas une échéance
+   pénale lointaine, il n'en a aucune. Le `CalculateurDHorloges` omet ces
+   horloges au lieu de les remplir de `null`, et ce gabarit dit pourquoi.
+
+   Paramètres :
+     horloges     — array<string, Horloge>, les horloges qui courent
+     aujourdHui   — le présent, venu de l'horloge injectée
+     reglesDeDelai— ReglesDeDelaiInterface, pour l'encart d'hypothèses
+#}
+<h2>Les cinq horloges</h2>
+<p class="sourd">
+    Cinq délais distincts, cinq points de départ distincts, cinq effets
+    distincts. Il n'existe dans ce logiciel <strong>aucun champ
+    « date limite »</strong> : les échéances se recalculent depuis des faits
+    datés, et un champ unique ferait mentir le produit.
+</p>
+
+{# `--empilable` : MESURÉ à 375 px, ce tableau demandait 737 px de contenu
+   dans 343 px visibles — plus de deux largeurs d'écran à tirer vers la
+   gauche pour atteindre la colonne « reste ». Replié en fiches, le point de
+   départ et le nombre de jours restants se lisent ENSEMBLE, ce que le
+   défilement horizontal rendait impossible — et c'est tout ce que cet écran
+   existe pour montrer. #}
+<div class="defilant defilant--empilable">
+    <table class="horloges">
+        <caption class="sourd">
+            {{ horloges|length }} horloge(s) en cours sur ce dossier, au
+            {{ aujourdHui|date('d/m/Y') }}.
+        </caption>
+        <thead>
+            <tr>
+                <th scope="col">Horloge</th>
+                <th scope="col">Part de</th>
+                <th scope="col">Départ</th>
+                <th scope="col">Durée</th>
+                <th scope="col">Échéance</th>
+                <th scope="col">Reste</th>
+                <th scope="col">Enjeu</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for code, horloge in horloges %}
+            {% set restants = horloge.joursRestants(aujourdHui) %}
+            {% set depassee = horloge.estDepassee(aujourdHui) %}
+            <tr{% if horloge_du_projet(code) %} class="horloges__pivot"{% endif %}>
+                <th scope="row">
+                    <span class="horloges__code">{{ code }}</span>
+                    {{ horloge.libelle }}
+                    {% if horloge_du_projet(code) %}
+                        <span class="sourd">— l'horloge dont tout ce projet parle</span>
+                    {% endif %}
+                </th>
+                <td data-libelle="Part de">{{ point_de_depart(code) }}</td>
+                <td data-libelle="Départ"><time datetime="{{ horloge.depart|date('Y-m-d') }}">{{ horloge.depart|date('d/m/Y') }}</time></td>
+                <td data-libelle="Durée">{{ duree_de_lhorloge(horloge) }}</td>
+                <td data-libelle="Échéance"><time datetime="{{ horloge.echeance|date('Y-m-d') }}">{{ horloge.echeance|date('d/m/Y') }}</time></td>
+                <td data-libelle="Reste">
+                    {% if depassee %}
+                        {# Le nombre de jours DEPUIS l'échéance, et non « 0 ».
+                           Zéro voudrait dire « elle expire aujourd'hui », ce
+                           qui est faux et grave pour qui compte sur ce chiffre. #}
+                        <span class="jalon jalon--perdu">échue depuis {{ (restants * -1) }} j</span>
+                    {% else %}
+                        <span class="jalon {{ restants <= 7 ? 'jalon--perdu' : 'jalon--en-cours' }}">{{ restants }} j</span>
+                    {% endif %}
+                </td>
+                <td data-libelle="Enjeu">{{ enjeu_de_lhorloge(code) }}</td>
+            </tr>
+            <tr class="horloges__effet">
+                <td colspan="7">
+                    <strong>Si elle expire :</strong> {{ horloge.effetSiExpire }}
+                    <span class="sourd">({{ horloge.article }})</span>
+                    {% if horloge.tombeUnJourProbablementNonOuvre %}
+                        <br>
+                        {# Alerte et non report : la loi 71.24 ne prévoit AUCUN
+                           report. Reporter serait inventer une règle ; ne rien
+                           dire serait laisser passer. Donc calcul strict, plus
+                           signalement. Et « probablement », parce qu'on sait
+                           tester le vendredi et le week-end, pas le calendrier
+                           des fêtes mobiles ni le Ramadan. #}
+                        <strong>Attention :</strong> l'échéance tombe un
+                        {{ horloge.echeance|date('l')|replace({
+                            'Friday': 'vendredi', 'Saturday': 'samedi', 'Sunday': 'dimanche'
+                        }) }}, jour probablement non ouvré. Ce logiciel ne
+                        reporte rien — la loi n° 71.24 ne prévoit aucun report —
+                        et se contente de le signaler.
+                    {% endif %}
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7">Aucune horloge ne court sur ce dossier.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# ─── CE QUI NE COURT PAS, ET POURQUOI ─────────────────────────────────── #}
+{% set manquantes = raisons_dabsence()|filter((raison, code) => code not in horloges|keys) %}
+{% if manquantes is not empty %}
+    <div class="encart">
+        <h3>Les horloges qui ne courent pas sur ce dossier</h3>
+        <dl class="absences">
+            {% for code, raison in manquantes %}
+                <dt><span class="horloges__code">{{ code }}</span></dt>
+                <dd>{{ raison }}</dd>
+            {% endfor %}
+        </dl>
+    </div>
+{% endif %}
+
+{# ─── LES HYPOTHÈSES DE CALCUL, SÉPARÉES DES RÈGLES SOURCÉES ──────────── #}
+{{ include('partiel/_regle.html.twig', {
+    titre: 'Comment ce logiciel compte les jours',
+    regle: regle_de_comptage(reglesDeDelai),
+}, with_context = false) }}

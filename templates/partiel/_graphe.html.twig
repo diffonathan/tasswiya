@@ -1,0 +1,166 @@
+{#
+   LE GRAPHE D'ÉTATS : LA PLACE COURANTE, ET CE QUI S'OUVRE OU SE BARRE.
+
+   ─── CE QUE CE FRAGMENT DOIT RÉUSSIR ────────────────────────────────────
+
+   Qu'une transition barrée dise POURQUOI — avec son article, son degré de
+   certitude et le renvoi au dossier de règles. Un bouton grisé en silence est
+   un écran qui a renoncé : l'utilisateur croit à une panne, et va chercher la
+   règle dans une source qui sera fausse.
+
+   ─── ET CE QUE LA MISE EN FORME DOIT DISTINGUER ─────────────────────────
+
+   Deux sortes d'obstacles, qui n'ont pas la même nature :
+
+     • UNE RÈGLE — de droit ou de ce logiciel. Elle s'affiche avec son degré
+       de certitude, par `_regle.html.twig`. C'est notamment ici que le quota
+       de prorogations apparaît avec le traitement visuel de CHOIX_PRODUIT,
+       parce que la loi n° 71.24 ne limite PAS le nombre de prorogations ;
+
+     • UNE HABILITATION. Elle n'est ni une règle de droit ni une hypothèse de
+       calcul : c'est l'état de l'utilisateur, pas celui du dossier. Lui
+       donner un degré de certitude la ferait entrer dans la carte des
+       certitudes, où elle n'a rien à faire. Elle s'affiche donc à part.
+
+   ─── PAS DE JAVASCRIPT, ET AUCUNE IMAGE GÉNÉRÉE ─────────────────────────
+
+   Le chemin est une liste d'éléments en flux, et la place courante est
+   marquée. `bin/console workflow:dump dossier_penal` produirait un vrai
+   graphe Graphviz, mais il faudrait Graphviz dans l'image et une étape de
+   rendu : 512 Mo au déploiement, et aucune chaîne de construction.
+
+   Paramètres :
+     etat         — EtatDossier, la place courante
+     places       — list<EtatDossier>, dans l'ordre de la procédure
+     transitions  — list<TransitionExpliquee>, celles qui partent de la place
+#}
+<h2>Le graphe d'états</h2>
+<p class="sourd">
+    Une <code>state_machine</code> et non un <code>workflow</code> : un dossier
+    occupe une position procédurale, <strong>et une seule</strong>. Il ne peut
+    pas être à la fois « délai en cours » et « poursuite engagée » —
+    l'article 325 al. 6 fait de l'écédar et de son délai une condition
+    préalable de la poursuite. Autoriser les deux places ensemble rendrait
+    exprimable un état que le droit exclut.
+</p>
+
+<ol class="chemin">
+    {% for place in places %}
+        {% set courante = place == etat %}
+        <li class="chemin__place{{ courante ? ' chemin__place--courante' : '' }}">
+            <span class="jalon jalon--{{ courante ? ton_etat(place) : 'inerte' }}">
+                {{ libelle_etat(place) }}
+            </span>
+            {% if courante %}
+                <span class="chemin__ici">position courante</span>
+            {% endif %}
+        </li>
+    {% endfor %}
+</ol>
+
+<div class="encart">
+    <h3>Ce que cette position veut dire</h3>
+    <p><strong>{{ libelle_etat(etat) }}.</strong> {{ explication_etat(etat) }}</p>
+</div>
+
+<h3>Les transitions qui partent d'ici</h3>
+
+{% if transitions is empty %}
+    <p>
+        Aucune transition ne part de cette position : c'est un état terminal du
+        graphe. <strong>Terminal dans ce logiciel</strong> — et au pénal
+        seulement. Une justification familiale retenue laisse ouverte l'action
+        civile de la partie lésée, et une action publique éteinte n'arrête pas
+        les cinq ans de l'interdiction bancaire.
+    </p>
+{% else %}
+    <ul class="transitions">
+    {% for transition in transitions %}
+        <li class="transition{{ transition.franchissable ? ' transition--ouverte' : ' transition--barree' }}">
+            <p class="transition__entete">
+                <span class="transition__nom">{{ transition.libelle }}</span>
+                <span class="transition__fleche" aria-hidden="true"></span>
+                <span class="transition__cible">{{ transition.libelleDeLaDestination }}</span>
+                {% if transition.franchissable %}
+                    <span class="jalon jalon--en-cours">ouverte</span>
+                {% else %}
+                    <span class="jalon jalon--perdu">barrée</span>
+                {% endif %}
+            </p>
+
+            {% if transition.declencheeParLeTemps %}
+                <p class="transition__nature">
+                    <strong>Franchie par le seul passage du temps.</strong>
+                    Aucun bouton ne la déclenche, et il ne peut pas en exister :
+                    sa garde ne consulte que l'horloge injectée. Aucun rôle,
+                    aucune route, aucun drapeau de ligne de commande ne la
+                    force.
+                </p>
+            {% endif %}
+
+            {% if transition.irreversible %}
+                <p class="transition__nature">
+                    <strong>Irréversible.</strong> Aucune transition de retour
+                    n'existe dans le graphe, et c'est un choix de droit et non
+                    d'ergonomie : on ne peut revenir ni sur la transaction ni
+                    sur le désistement (art. 325 al. 10).
+                </p>
+            {% endif %}
+
+            {# ─── LE PRÉALABLE DE FORME, AVANT LES RÈGLES ──────────────── #}
+            {% if transition.prealableManquant %}
+                <p class="transition__prealable">{{ transition.prealableManquant }}</p>
+            {% endif %}
+
+            {# ─── LES RÈGLES QUI BARRENT, CHACUNE AVEC SON DEGRÉ ───────── #}
+            {% for regle in transition.reglesOpposees %}
+                {{ include('partiel/_regle.html.twig', { regle: regle }, with_context = false) }}
+            {% endfor %}
+
+            {# ─── L'HABILITATION, QUI N'EST PAS UNE RÈGLE DE DROIT ─────── #}
+            {% if transition.habilitationManquante %}
+                <div class="habilitation">
+                    <span class="habilitation__etiquette">Habilitation</span>
+                    <p>
+                        Cette transition exige l'habilitation
+                        <code>{{ transition.habilitationManquante }}</code> —
+                        {{ libelle_habilitation(transition.habilitationManquante) }} —
+                        et l'utilisateur courant ne l'a pas. Ce n'est
+                        <strong>ni une règle de droit, ni une hypothèse de
+                        calcul</strong> : c'est l'état de l'utilisateur, pas
+                        celui du dossier.
+                    </p>
+                    <p class="sourd">
+                        Décidé par <code>App\Security\Voter\DossierVoter</code>,
+                        appelé depuis la garde de la transition dans
+                        <code>config/packages/workflow.yaml</code>. Deux de ces
+                        habilitations traduisent une vraie règle de droit :
+                        l'accord à la prorogation est celui
+                        <strong>du bénéficiaire</strong> (art. 325 al. 8), et le
+                        désistement est celui du plaignant.
+                    </p>
+                </div>
+            {% endif %}
+
+            {% if not transition.coherente %}
+                {# NE DOIT JAMAIS S'AFFICHER, et c'est pour cela qu'il est écrit.
+                   L'invariant : une transition impossible a au moins un motif,
+                   une transition possible n'en a aucun. S'il tombe, c'est que
+                   `workflow.yaml` porte une condition que l'explicateur ignore,
+                   et un écran qui le cacherait grise un bouton en silence.
+                   `tasswiya:verifier-les-ecrans` vérifie le même invariant en
+                   ligne de commande et sort en échec. #}
+                <p class="incoherence">
+                    <strong>Diagnostic incohérent.</strong> La machine à états dit
+                    « {{ transition.franchissable ? 'franchissable' : 'impossible' }} »
+                    et l'explicateur ne trouve
+                    {{ transition.barree ? 'un motif' : 'aucun motif' }}.
+                    Une condition de <code>workflow.yaml</code> n'est pas
+                    rattachée à une règle du catalogue. À corriger dans
+                    <code>App\Domaine\Graphe\ExplicateurDuGraphe</code>.
+                </p>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+{% endif %}

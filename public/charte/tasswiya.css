@@ -1,0 +1,1207 @@
+/* ╔═══════════════════════════════════════════════════════════════════════╗
+   ║  TASSWIYA — LES JETONS DE LA CHARTE                                   ║
+   ║  Palette 17 — Indigo #635bff du catalogue maison.                     ║
+   ║  Les raisons sont dans ../../CHARTE.md ; les nombres sortent de        ║
+   ║  `docker compose exec php php brand/mesures/charte.php`.               ║
+   ╚═══════════════════════════════════════════════════════════════════════╝
+
+   POURQUOI CE FICHIER EST DANS `public/` ET SERVI TEL QUEL
+
+   Contrainte n° 2 du projet : aucune chaîne de construction npm. Il n'y a
+   donc ni AssetMapper, ni Encore, ni post-traitement — ce fichier est
+   exactement ce que le navigateur reçoit. Conséquences assumées :
+
+     • pas de nesting CSS natif, pas de `@custom-media` : ce qui est écrit
+       ici doit tourner sans transpilation ;
+     • aucune police téléchargée. Les piles sont celles du système. Une
+       démonstration doit s'afficher à l'identique hors réseau, et une
+       requête vers un hébergeur de polices est une fuite de données que ce
+       produit-là, qui parle de dossiers pénaux, n'a pas à se permettre ;
+     • un seul fichier. Avec un en-tête qui dit où sont les raisons.
+
+   CE QUI N'EST PAS ICI : aucune règle de droit, aucun montant, aucun délai.
+   Une feuille de style qui porterait un chiffre du dossier violerait la
+   séparation que `config/packages/tasswiya.yaml` tient depuis le début. */
+
+/* ═════════════════════════════════════════════════════════════════════════
+   1. LE SUBSTRAT, ET POURQUOI C'EST DU PAPIER
+
+   La charte maison dit « nuit uniquement, aucun thème clair ». Ce projet
+   s'en écarte, DÉLIBÉRÉMENT, et c'est le seul écart de cette charte :
+
+     a) le cinquième rôle de ce produit — le degré de certitude — doit
+        « survivre au noir et blanc ». Autrement dit : à l'impression. Un
+        dossier de régularisation s'imprime et se glisse dans une chemise.
+        Une charte nuit s'imprime en aplat noir ou se fait inverser par le
+        navigateur, et le signal qui compte le plus se perd en route ;
+     b) le produit n'affiche presque que des tableaux de dates et de
+        nombres en police mono. Du `backdrop-filter: blur()` derrière des
+        chiffres de 13 px est exactement le cas où le glassmorphism coûte
+        le plus de lisibilité pour le moins d'effet ;
+     c) le registre. Les autres projets de la série sont des terminaux et
+        des tableaux de bord ; celui-ci est une pièce de dossier.
+
+   Ce qui est gardé de la charte maison, en revanche, ne bouge pas : une
+   seule couleur pilote tout, la recette de dérivation de l'accent, les
+   quatre rôles de couleur, et la courbe d'animation signature. La nuit
+   reste disponible comme thème à part entière — ce n'est pas un repli
+   dégradé, les deux substrats sont mesurés au même seuil.
+   ═════════════════════════════════════════════════════════════════════ */
+
+:root {
+    color-scheme: light dark;
+
+    /* ─── Substrat papier ──────────────────────────────────────────────── */
+    --papier: #fbfaf7;
+    --papier-creux: #f3f1ea;   /* encarts, lignes alternées */
+    --papier-releve: #ffffff;  /* ce qui doit avancer d'un cran */
+    --encre: #16202c;          /* 15,75:1 — § 7 */
+    --encre-sourde: #55606e;   /*  6,13:1 */
+    --filet: #cfc8b6;          /*  1,60:1 — un filet, pas du texte */
+    --filet-appuye: #b3aa94;
+
+    /* ─── Rôle 1 : INDIGO = L'ACTION ───────────────────────────────────────
+       Navigation, liens, boutons, focus, onglets. Rien d'autre. Un indigo
+       posé sur un élément non cliquable rend le signal faux pour toute la
+       page, et c'est l'erreur la plus facile à commettre.
+
+       Les cinq valeurs dérivées ne sont pas choisies à l'œil : elles sortent
+       de `assombrir()` / `eclaircir()` de la charte maison, et § 5 du script
+       de mesures les imprime. */
+    --indigo: #635bff;         /* la couleur pilote, telle quelle */
+    --indigo-sourd: #514bd1;   /* assombrir(0.18) — 6,41:1 sous du blanc */
+    --indigo-encre: #4540b3;   /* assombrir(0.30) — 7,63:1 sur papier */
+    --indigo-doux: rgba(99, 91, 255, 0.10);
+    --indigo-bordure: rgba(99, 91, 255, 0.30);
+    --indigo-halo: rgba(99, 91, 255, 0.18);
+    --grad-indigo: linear-gradient(-15deg, #a9a5ff, #4d47c7);
+
+    /* ─── Rôle 2 : OR = LES MONTANTS, ET RIEN D'AUTRE ──────────────────────
+       Valeur du chèque, manquant, amendes, pénalités. Jamais un titre,
+       jamais une décoration, jamais une mise en valeur.
+
+       Pourquoi si strict : l'or est à 29,2° du rouge (§ 6 des mesures),
+       l'écart le plus faible de toute la charte. Cette proximité est subie —
+       les deux teintes sont des rôles maison. La parade n'est donc pas
+       chromatique mais typographique : l'or ne se pose que sur des nombres,
+       et tout nombre est en police mono. La FORME sépare ce que la teinte ne
+       sépare pas assez. Un titre en or casserait cette parade. */
+    --or: #f9a825;
+    --or-encre: #7a5600;       /* 6,37:1 sur papier */
+    --or-doux: rgba(249, 168, 37, 0.12);
+
+    /* ─── Rôle 3 : VERT = CE QUI EST RÉGLÉ ─────────────────────────────────
+       Régularisé, action publique éteinte, peine effacée, interdiction
+       purgée. L'état final favorable, et lui seul. */
+    --vert-encre: #1f6f4a;     /* 5,86:1 */
+    --vert-doux: rgba(31, 111, 74, 0.10);
+
+    /* ─── Rôle 4 : ROUGE = CE QUI EST PERDU ────────────────────────────────
+       Délai expiré, poursuite engagée, condamnation. C'est le signal le plus
+       important de l'écran — c'est lui que la démonstration fait apparaître
+       au seul passage du temps — et c'est pour le préserver que l'accent est
+       indigo plutôt que magenta ou fuchsia (§ 4 des mesures). */
+    --rouge-encre: #a52714;    /* 6,94:1 */
+    --rouge-doux: #fdf2ee;
+    --rouge-filet: #d99b8a;
+
+    /* ─── Rôle 5 : LE DEGRÉ DE CERTITUDE — SANS AUCUNE COULEUR ─────────────
+       Voir le bloc 4. Ces jetons sont volontairement ACHROMATIQUES : ils
+       dérivent de l'encre, pas d'une teinte. C'est ce qui garantit qu'ils
+       n'entrent jamais en collision avec les quatre rôles ci-dessus, et
+       qu'ils survivent au noir et blanc par construction et non par chance. */
+    --degre-trait: #55606e;
+    --degre-trame: rgba(22, 32, 44, 0.10);
+    --degre-trame-appuyee: rgba(22, 32, 44, 0.16);
+
+    /* ─── Typographie ──────────────────────────────────────────────────────
+       Trois piles, et la troisième n'est pas un luxe : le produit affiche de
+       l'arabe VERBATIM, parce que la seule version officielle de la loi
+       n° 71.24 est en arabe et que `RegleAppliquee::$arabeSource` existe pour
+       le porter à l'écran. Rendre ce mot avec la pile latine donnerait des
+       carrés vides ou un naskh de secours illisible — exactement sur le mot
+       dont le produit dit qu'il fait foi. */
+    --police-texte: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+                    Roboto, Helvetica, Arial, sans-serif;
+    --police-nombre: ui-monospace, "SFMono-Regular", "Cascadia Mono",
+                     "Segoe UI Mono", Consolas, "Liberation Mono", monospace;
+    --police-arabe: "Segoe UI", "Noto Naskh Arabic", "Geeza Pro",
+                    "Traditional Arabic", "Times New Roman", serif;
+
+    /* ─── Trame et rythme ─────────────────────────────────────────────────── */
+    --gouttiere: 16px;         /* la marge latérale tenue à 375 px */
+    --rayon: 6px;
+    --rayon-pastille: 999px;
+
+    /* La courbe signature de la charte maison. Gardée : c'est l'un des rares
+       éléments qui font reconnaître la série d'un projet à l'autre. */
+    --courbe: cubic-bezier(0.22, 1, 0.36, 1);
+    --transition: 180ms var(--courbe);
+}
+
+/* ─── Substrat nuit ────────────────────────────────────────────────────────
+   Un thème à part entière, mesuré au même seuil que le papier (§ 7). Ce qui
+   NE change pas d'un substrat à l'autre : la teinte des quatre rôles, et le
+   fait que le cinquième n'en a pas. Seule la clarté bouge — un vert qui
+   deviendrait bleu la nuit détruirait le langage. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="clair"]) {
+        --papier: #111318;
+        --papier-creux: #191c22;
+        --papier-releve: #1f2329;
+        --encre: #e8e6e1;
+        --encre-sourde: #9aa3ad;
+        --filet: #333a44;
+        --filet-appuye: #4a535f;
+
+        --indigo-sourd: #7b74ff;
+        --indigo-encre: #a9a5ff;    /* eclaircir(0.45) — 8,42:1 */
+        --indigo-doux: rgba(99, 91, 255, 0.18);
+        --indigo-bordure: rgba(123, 116, 255, 0.42);
+
+        --or-encre: #f9a825;        /* 9,43:1 */
+        --or-doux: rgba(249, 168, 37, 0.14);
+
+        --vert-encre: #6fbf95;      /* 8,46:1 */
+        --vert-doux: rgba(111, 191, 149, 0.13);
+
+        --rouge-encre: #ff8a73;     /* 8,08:1 */
+        --rouge-doux: #2a1a16;
+        --rouge-filet: #7a3528;
+
+        --degre-trait: #9aa3ad;
+        --degre-trame: rgba(232, 230, 225, 0.10);
+        --degre-trame-appuyee: rgba(232, 230, 225, 0.16);
+    }
+}
+
+/* Le même jeu de valeurs, forcé. Deux attributs plutôt qu'un seul, pour que
+   `data-theme="clair"` puisse aussi ramener le papier sur une machine réglée
+   en nuit : un utilisateur qui va imprimer doit pouvoir le demander. */
+:root[data-theme="nuit"] {
+    --papier: #111318;
+    --papier-creux: #191c22;
+    --papier-releve: #1f2329;
+    --encre: #e8e6e1;
+    --encre-sourde: #9aa3ad;
+    --filet: #333a44;
+    --filet-appuye: #4a535f;
+    --indigo-sourd: #7b74ff;
+    --indigo-encre: #a9a5ff;
+    --indigo-doux: rgba(99, 91, 255, 0.18);
+    --indigo-bordure: rgba(123, 116, 255, 0.42);
+    --or-encre: #f9a825;
+    --or-doux: rgba(249, 168, 37, 0.14);
+    --vert-encre: #6fbf95;
+    --vert-doux: rgba(111, 191, 149, 0.13);
+    --rouge-encre: #ff8a73;
+    --rouge-doux: #2a1a16;
+    --rouge-filet: #7a3528;
+    --degre-trait: #9aa3ad;
+    --degre-trame: rgba(232, 230, 225, 0.10);
+    --degre-trame-appuyee: rgba(232, 230, 225, 0.16);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   2. LE SOCLE
+   ═════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    background: var(--papier);
+    color: var(--encre);
+    font-family: var(--police-texte);
+    font-size: 16px;
+    line-height: 1.6;
+    /* Le produit ne débordera jamais latéralement : c'est une contrainte dure
+       à 375 px, et un garde-fou vaut mieux qu'une relecture. */
+    overflow-x: hidden;
+}
+
+/* La gouttière de 16 px est tenue ici et nulle part ailleurs. */
+.enveloppe {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 0 var(--gouttiere) 4rem;
+}
+
+h1, h2, h3 { line-height: 1.25; text-wrap: balance; }
+h1 { font-size: 1.6rem; margin: 2rem 0 0.25rem; letter-spacing: -0.015em; }
+h2 { font-size: 1.15rem; margin: 2.25rem 0 0.5rem; }
+h3 { font-size: 1rem; margin: 1.5rem 0 0.4rem; }
+
+a { color: var(--indigo-encre); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--indigo-sourd); }
+
+/* Le focus est indigo parce que le focus EST une action. Jamais retiré :
+   l'écran se parcourt au clavier, et une démonstration filmée au clavier est
+   précisément ce que ce projet veut pouvoir faire. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+code, kbd, samp { font-family: var(--police-nombre); font-size: 0.9em; }
+
+.sourd { color: var(--encre-sourde); font-size: 0.9rem; }
+/* ─── `anywhere` SUR DU CODE, ET LÀ SEULEMENT ─────────────────────────────
+   MESURÉ : sur l'écran de démonstration à 375 px, le seul
+   `<code>App\Domaine\Horloge\HorlogeDeDemonstration</code>` portait tout le
+   tableau à 453 px et la page à 470 px — un débordement latéral de la page,
+   ce que le socle interdit.
+
+   La cause est exactement le piège documenté au bloc 5 : `break-word` casse
+   un mot qui déborde sa ligne, mais il n'entre PAS dans le calcul de la
+   largeur minimale du tableau. Un nom de classe pleinement qualifié, sans
+   espace ni césure possible, impose donc sa longueur entière à la colonne.
+
+   `anywhere`, lui, réduit cette largeur minimale — et c'est pourquoi le
+   bloc 5 le refuse sur `th, td` : il autoriserait le navigateur à écraser
+   toutes les colonnes jusqu'à une lettre par ligne. Posé sur `code` SEUL, il
+   ne réduit que la cellule qui contient un identifiant, et le reste du
+   tableau garde sa largeur naturelle.
+
+   Et le compromis est nul ici : un nom de classe ou un chemin de fichier
+   n'est pas une phrase. Le couper après n'importe quel caractère ne change
+   ni son sens, ni sa ponctuation, ni ses bornes — ce qui était précisément
+   l'argument contre `anywhere` sur de la prose. */
+code, kbd, samp { overflow-wrap: anywhere; }
+
+
+/* ─── L'arabe ───────────────────────────────────────────────────────────────
+   `unicode-bidi: isolate` n'est pas décoratif : sans lui, un mot arabe posé
+   au milieu d'une phrase française emporte la ponctuation voisine du mauvais
+   côté, et une citation d'article se met à mentir sur ses propres bornes.
+   Le 1,08em compense la hauteur d'x plus faible des naskh. */
+.arabe {
+    font-family: var(--police-arabe);
+    font-size: 1.08em;
+    direction: rtl;
+    unicode-bidi: isolate;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   3. LES QUATRE RÔLES, EN UTILITAIRES
+
+   Une classe par rôle, nommée par le SENS et non par la couleur. C'est ce
+   qui permet de relire un gabarit et de voir si le langage est tenu :
+   `<span class="montant">` se vérifie, `<span class="or">` ne se vérifie pas.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* RÔLE OR — et le sélecteur dit la règle : un montant est un nombre.
+   `tabular-nums` aligne les colonnes de dirhams d'une ligne à l'autre ;
+   sans lui, une colonne de montants ondule et devient illisible. */
+.montant {
+    color: var(--or-encre);
+    font-family: var(--police-nombre);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Un montant que le produit REFUSE de chiffrer — l'assiette `indeterminee`
+   de `LOI.md` § 6 H6. Il garde la place et la police du montant, pour qu'on
+   voie qu'il manque, mais pas l'or : il n'y a pas de valeur. */
+.montant--indetermine {
+    color: var(--encre-sourde);
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* RÔLE VERT / RÔLE ROUGE — l'état d'un jalon.
+   `--en-cours` prend l'indigo parce qu'un dossier en cours est le seul sur
+   lequel on peut encore agir. */
+.jalon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.1em 0.55em;
+    border: 1px solid currentColor;
+    border-radius: var(--rayon-pastille);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    /* Une pastille d'état ne se coupe JAMAIS. Mesuré à 375 px : dans une
+       colonne étroite, « en cours » devenait quatre lignes d'une syllabe
+       dans un ovale haut de quatre lignes. Un état se lit d'un coup d'œil ou
+       ne sert à rien. */
+    white-space: nowrap;
+}
+.jalon--regle { color: var(--vert-encre); background: var(--vert-doux); }
+.jalon--perdu { color: var(--rouge-encre); background: var(--rouge-doux); }
+.jalon--en-cours { color: var(--indigo-encre); background: var(--indigo-doux); }
+
+/* Conservés sous leurs anciens noms : `accueil.html.twig` les utilise, et
+   renommer une classe pour la beauté du geste casse un gabarit qui marche. */
+.oui { color: var(--vert-encre); font-weight: 600; }
+.non { color: var(--rouge-encre); font-weight: 600; }
+
+/* RÔLE INDIGO — l'action. */
+.bouton {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: 1px solid transparent;
+    border-radius: var(--rayon);
+    background: var(--indigo-sourd);  /* 6,41:1 sous du blanc, § 7 */
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--transition), transform var(--transition);
+}
+.bouton:hover { background: var(--indigo); }
+.bouton:active { transform: translateY(1px); }
+.bouton[disabled], .bouton[aria-disabled="true"] {
+    background: var(--filet);
+    color: var(--encre-sourde);
+    cursor: not-allowed;
+}
+
+.bouton--discret {
+    background: transparent;
+    border-color: var(--indigo-bordure);
+    color: var(--indigo-encre);
+}
+.bouton--discret:hover { background: var(--indigo-doux); }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   4. LE CINQUIÈME RÔLE — LE DEGRÉ DE CERTITUDE
+
+   C'est la pièce propre à ce produit, et la seule de cette charte qui
+   n'existe dans aucun autre projet de la série.
+
+   LE PROBLÈME. Tasswiya affiche du droit reconstitué depuis un Bulletin
+   officiel arabe dont des fragments sont élidés. Quatre degrés cohabitent à
+   l'écran — `App\Enum\DegreCertitude` : ETABLI, PROBABLE, INCERTAIN,
+   CHOIX_PRODUIT — et un utilisateur doit voir d'un coup d'œil ce qui vient
+   du texte officiel et ce que l'application a décidé toute seule. Afficher
+   un choix de développeur avec l'autorité d'une loi est LA faute que ce
+   projet cherche à ne pas commettre.
+
+   POURQUOI PAS LA COULEUR. Les quatre rôles occupent déjà le cercle, et leur
+   écart le plus faible est de 29,2°. Une cinquième teinte s'y entasserait,
+   et surtout : INCERTAIN devrait alerter, donc tirer vers le rouge, qui
+   appartient à « délai expiré ». Un rouge qui voudrait dire deux choses ne
+   dit plus rien. Le degré de certitude n'a donc AUCUNE COULEUR — et c'est
+   une décision, pas un renoncement.
+
+   CE QUI LE PORTE, dans l'ordre d'importance :
+
+     1. LE STYLE DU FILET DE GAUCHE — solide, double, tiretée, pointillée.
+        C'est le canal principal, et le choix est technique autant que
+        graphique : un `border-style` est la seule propriété de cette liste
+        qu'un navigateur imprime TOUJOURS, même quand il jette les fonds, les
+        ombres et les dégradés. Le signal qui doit survivre au noir et blanc
+        est donc posé sur la seule propriété qui ne disparaît pas.
+
+        La rampe se lit sans légende parce qu'elle va du continu au discontinu,
+        dans l'ordre : un trait entier dit « c'est écrit », un trait brisé dit
+        « c'est reconstitué ». Personne n'a besoin qu'on le lui explique.
+
+     2. LA TRAME DE FOND — rien, rien, hachures obliques, grille de points.
+        Second canal, redondant, qui donne la lecture à distance : les deux
+        degrés qui demandent de la méfiance sont les deux seuls texturés.
+
+     3. LE RETRAIT — seul CHOIX_PRODUIT est décalé vers l'intérieur. Il n'est
+        pas une règle de droit : il ne doit pas être aligné avec le droit.
+
+     4. L'ÉTIQUETTE — le mot, toujours présent. Pas pour tenir le signal,
+        mais parce qu'un lecteur d'écran ne voit ni filet ni trame, et parce
+        que `RegleAppliquee::attribution()` a de toute façon une phrase exacte
+        à écrire sous chaque règle.
+
+   Quatre canaux dont trois non chromatiques : le degré survit au noir et
+   blanc, au daltonisme, et à l'impression d'un navigateur qui a décidé de
+   ne pas imprimer les fonds.
+   ═════════════════════════════════════════════════════════════════════ */
+
+.regle {
+    margin: 1rem 0;
+    padding: 0.7rem 1rem;
+    border-left: 5px solid var(--degre-trait);
+    background: transparent;
+    /* Les trames sont posées en `background-image` et doivent survivre à
+       l'impression. Voir le bloc 7 : c'est là que ça se joue. */
+    background-repeat: repeat;
+}
+
+.regle > :first-child { margin-top: 0; }
+.regle > :last-child { margin-bottom: 0; }
+
+/* L'énoncé. En encre normale : c'est le texte, pas une annotation. */
+.regle__enonce { margin: 0 0 0.35rem; }
+
+/* L'attribution — ce que `RegleAppliquee::attribution()` renvoie, et rien
+   d'autre. Jamais « loi 71-24 » sous une règle qui n'en vient pas. */
+.regle__attribution {
+    margin: 0;
+    color: var(--encre-sourde);
+    font-size: 0.82rem;
+}
+
+/* L'étiquette du degré. Achromatique, comme tout ce rôle. */
+.regle__degre {
+    display: inline-block;
+    margin-bottom: 0.3rem;
+    color: var(--degre-trait);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+/* ─── ETABLI — lu sur le texte officiel ────────────────────────────────────
+   Filet plein, pas de trame, pas de retrait. C'est l'état de référence : le
+   plus simple, parce que c'est celui auquel les trois autres se comparent. */
+.regle--etabli {
+    border-left-style: solid;
+    border-left-color: var(--encre);
+}
+.regle--etabli .regle__degre { color: var(--encre); }
+
+/* ─── PROBABLE — sources secondaires concordantes ──────────────────────────
+   Filet DOUBLE. Le choix n'est pas arbitraire : deux traits pour deux
+   sources qui concordent, là où l'établi n'en avait besoin que d'une. Et le
+   double trait reste un trait continu — on est encore du côté du su.
+
+   5 px est le minimum pour que `double` rende effectivement deux traits
+   (2 px / 1 px / 2 px). À 4 px le navigateur retombe sur un trait plein et
+   le degré devient indistinguable de ETABLI : le jeton n'est pas
+   décoratif, il est fonctionnel. */
+.regle--probable {
+    border-left-style: double;
+    border-left-width: 5px;
+}
+
+/* ─── INCERTAIN — sources divergentes, ou pièce non trouvée ────────────────
+   Filet TIRETÉ et hachures obliques. C'est le seul degré qui, selon
+   `LOI.md` § 0, doit ALERTER au lieu de conclure — et l'alerte est portée
+   par la texture, pas par du rouge, parce que le rouge appartient à « délai
+   expiré » et qu'on ne lui fait pas dire deux choses.
+
+   Les hachures montent de gauche à droite : c'est le terrain qu'on hachure
+   sur un plan quand on ne sait pas ce qu'il y a dessous. */
+.regle--incertain {
+    border-left-style: dashed;
+    background-image: repeating-linear-gradient(
+        45deg,
+        var(--degre-trame-appuyee) 0, var(--degre-trame-appuyee) 1px,
+        transparent 1px, transparent 7px
+    );
+}
+
+/* ─── CHOIX_PRODUIT — une décision de développeur, pas du droit ────────────
+   Filet POINTILLÉ, grille de points, et un RETRAIT. Le plus discontinu des
+   quatre, parce que c'est le plus loin du texte officiel ; et le seul
+   décalé, parce qu'il ne doit pas s'aligner avec le droit.
+
+   `LOI.md` § 6 veut ces règles dans un encart « hypothèses de calcul »
+   distinct. Le retrait est ce qui rend l'encart lisible même quand une
+   hypothèse se trouve isolée au milieu de règles sourcées. */
+.regle--choix-produit {
+    border-left-style: dotted;
+    margin-left: 1.5rem;
+    font-size: 0.94rem;
+    background-image: radial-gradient(
+        var(--degre-trame) 1px, transparent 1px
+    );
+    background-size: 8px 8px;
+}
+
+/* À 375 px, 1,5 rem de retrait sur un bloc déjà dans une gouttière de 16 px
+   coûte 10 % de la largeur de lecture. Le retrait tombe ; le filet pointillé
+   et la grille de points, eux, ne dépendent pas de la place. */
+@media (max-width: 30rem) {
+    .regle--choix-produit { margin-left: 0.5rem; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   5. LES SURFACES ET LES TABLEAUX
+   ═════════════════════════════════════════════════════════════════════ */
+
+.avertissement {
+    background: var(--rouge-doux);
+    border-bottom: 2px solid var(--rouge-encre);
+    color: var(--rouge-encre);
+    padding: 0.75rem var(--gouttiere);
+    font-size: 0.9rem;
+}
+.avertissement strong { text-transform: uppercase; letter-spacing: 0.03em; }
+.avertissement p { margin: 0.35rem 0 0; max-width: 56rem; }
+
+.encart {
+    background: var(--papier-creux);
+    border: 1px solid var(--filet);
+    border-left: 3px solid var(--filet-appuye);
+    border-radius: 0 var(--rayon) var(--rayon) 0;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+}
+.encart h3 {
+    margin: 0 0 0.4rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--encre-sourde);
+}
+.encart > :last-child { margin-bottom: 0; }
+
+/* ─── Tableaux ─────────────────────────────────────────────────────────────
+   `break-word` et surtout PAS `anywhere` — la différence a été mesurée à
+   375 px et elle est brutale. Les deux coupent un mot trop long pour la
+   colonne ; mais `anywhere` entre en plus dans le calcul de la largeur
+   minimale du tableau, ce qui autorise le navigateur à écraser toutes les
+   colonnes jusqu'à une lettre par ligne. Le tableau des cinq horloges y
+   rendait « régularisation » en « régular / isation » et « en cours » en
+   quatre lignes. `break-word` ne casse que ce qui déborde vraiment, et le
+   tableau garde sa largeur naturelle — quitte à défiler, ce qui est le rôle
+   de `.defilant`. */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+}
+th, td {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--filet);
+    vertical-align: top;
+    overflow-wrap: break-word;
+}
+th {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--encre-sourde);
+    font-weight: 600;
+}
+/* Les en-têtes de ligne, eux, portent du contenu et non une étiquette de
+   colonne : ils gardent la casse et l'encre du texte. */
+tbody th[scope="row"] {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--encre);
+    font-size: 0.9rem;
+}
+td:has(.montant), td.montant { text-align: right; }
+
+/* Pour un tableau qui ne PEUT pas rétrécir — un graphe d'états, un tableau
+   des cinq horloges. On fait défiler la zone, jamais la page. */
+.defilant {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    /* L'ombre interne dit qu'il reste du contenu à droite : sans elle, une
+       colonne coupée passe pour une colonne absente. */
+    background:
+        linear-gradient(to right, var(--papier) 70%, transparent) left / 2.5rem 100% no-repeat,
+        linear-gradient(to left, var(--papier) 70%, transparent) right / 2.5rem 100% no-repeat,
+        radial-gradient(farthest-side at 0 50%, var(--filet), transparent) left / 0.5rem 100% no-repeat,
+        radial-gradient(farthest-side at 100% 50%, var(--filet), transparent) right / 0.5rem 100% no-repeat;
+    background-attachment: local, local, scroll, scroll;
+}
+/* Dans une zone qui défile, le tableau reprend sa largeur NATURELLE. Avec le
+   `width: 100%` général il se serait écrasé dans la zone au lieu de la
+   déborder, et la zone n'aurait jamais rien eu à faire défiler : on aurait
+   payé le prix du conteneur sans en avoir l'effet. */
+.defilant > table {
+    margin: 0;
+    width: auto;
+    min-width: 100%;
+}
+
+/* ─── LES TABLEAUX QUI S'EMPILENT PLUTÔT QUE DE DÉFILER ───────────────────
+   MESURÉ, et c'est la mesure qui a imposé ce bloc. Sur l'écran du dossier à
+   375 px, le tableau des cinq horloges demandait 737 px de contenu dans
+   343 px visibles : plus de deux largeurs d'écran à faire défiler
+   horizontalement pour lire la ligne la plus importante du produit. Un
+   lecteur qui doit tirer le tableau vers la gauche pour atteindre la colonne
+   « reste » ne voit jamais le point de départ et le nombre de jours
+   ENSEMBLE — or c'est exactement ce que cet écran existe pour montrer.
+
+   Sous 36 rem, ces tableaux se replient donc en fiches : une ligne par
+   dossier ou par horloge, chaque cellule sur sa propre ligne avec son
+   intitulé de colonne devant. L'intitulé vient de `data-libelle` sur la
+   cellule, parce qu'un `::before` ne peut pas lire le `<th>` de sa colonne.
+
+   Le défilement reste pour les tableaux NON marqués `--empilable` : un
+   tableau de trois colonnes courtes se lit mieux en défilant qu'en se
+   dépliant sur douze lignes. L'empilement n'est pas gratuit — il allonge la
+   page — et il ne se justifie que là où le défilement cassait la lecture. */
+@media (max-width: 36rem) {
+    .defilant--empilable {
+        overflow-x: visible;
+        background: none;
+    }
+    .defilant--empilable > table { min-width: 0; width: 100%; }
+
+    /* Les en-têtes de colonne disparaissent : ils sont repris cellule par
+       cellule. Pas `display: none` sur le `<thead>` seulement — la rangée
+       aussi, sinon certains navigateurs gardent sa hauteur. */
+    .defilant--empilable thead,
+    .defilant--empilable thead tr { display: none; }
+
+    .defilant--empilable tbody tr { display: block; padding: 0.5rem 0; }
+    /* Le filet sépare les FICHES, pas les cellules : une fiche de six lignes
+       soulignées six fois ne se lirait plus comme une fiche. */
+    .defilant--empilable tbody tr + tr { border-top: 1px solid var(--filet); }
+
+    .defilant--empilable tbody th,
+    .defilant--empilable tbody td {
+        display: block;
+        width: auto;
+        border: 0;
+        padding: 0.1rem 0;
+        text-align: left;       /* annule l'alignement à droite des montants */
+    }
+
+    .defilant--empilable tbody th[scope="row"] {
+        font-size: 1rem;
+        font-weight: 600;
+        padding-bottom: 0.3rem;
+    }
+
+    .defilant--empilable tbody td[data-libelle]::before {
+        content: attr(data-libelle);
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--encre-sourde);
+    }
+
+    /* Une cellule vide n'a pas d'intitulé : « ÉCHÉANCE — » sur une fiche
+       n'apprend rien et prend deux lignes. */
+    .defilant--empilable tbody td:empty { display: none; }
+
+    /* La ligne d'effet et la ligne de raison perdent leur retrait de
+       continuation : dépliées, elles sont le dernier paragraphe de la fiche. */
+    .horloges__effet > td,
+    .montants__raison > td { padding-top: 0.35rem; }
+}
+
+footer {
+    border-top: 1px solid var(--filet);
+    margin-top: 3rem;
+    padding-top: 1rem;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   6. LA MARQUE DANS L'EN-TÊTE
+   ═════════════════════════════════════════════════════════════════════ */
+
+.marque {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 1.25rem 0 0.5rem;
+    color: var(--encre);
+    text-decoration: none;
+}
+.marque__symbole { display: block; width: 32px; height: 32px; flex: none; }
+.marque__nom { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+/* Le mot arabe en encre sourde, jamais en or : l'or ne porte que des
+   montants, et c'est la règle la plus facile à enfreindre sans y penser. */
+.marque__arabe {
+    font-family: var(--police-arabe);
+    color: var(--encre-sourde);
+    font-size: 0.95rem;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   7. L'IMPRESSION — LÀ OÙ LE CINQUIÈME RÔLE SE JOUE VRAIMENT
+
+   Un dossier de régularisation s'imprime. Et un navigateur qui imprime jette
+   par défaut les `background-image` : les hachures et la grille de points,
+   qui sont le second canal du degré de certitude, disparaîtraient.
+
+   `print-color-adjust: exact` les retient — et il n'est posé QUE sur les
+   blocs de règles, nulle part ailleurs. L'appliquer largement ferait
+   imprimer tous les aplats de la page et gâcherait une cartouche pour rien.
+
+   Le premier canal, lui, n'a besoin de rien : un `border-style` s'imprime
+   toujours. C'est exactement pour cette raison qu'il est le canal principal
+   et non le canal d'appoint.
+   ═════════════════════════════════════════════════════════════════════ */
+
+@media print {
+    :root {
+        --papier: #ffffff;
+        --papier-creux: #ffffff;
+        --encre: #000000;
+        --encre-sourde: #3a3a3a;
+        --filet: #b0b0b0;
+        --degre-trait: #000000;
+        --degre-trame: rgba(0, 0, 0, 0.18);
+        --degre-trame-appuyee: rgba(0, 0, 0, 0.28);
+    }
+
+    body { overflow-x: visible; font-size: 11pt; }
+    .enveloppe { max-width: none; padding: 0; }
+
+    .regle {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        /* Une règle coupée en deux pages perdrait son filet de gauche sur la
+           seconde, donc son degré. C'est le seul endroit du produit où une
+           coupure de page fait perdre de l'information. */
+        break-inside: avoid;
+    }
+
+    /* L'avertissement doit rester lisible une fois imprimé en noir : il perd
+       sa couleur, il garde son cadre. */
+    .avertissement {
+        color: #000000;
+        background: #ffffff;
+        border: 2px solid #000000;
+        padding: 0.5rem;
+    }
+
+    /* Une URL imprimée sans son adresse est un cul-de-sac sur papier. */
+    a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+
+    .defilant { overflow: visible; background: none; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   8. CE QUE L'UTILISATEUR A DEMANDÉ
+   ═════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* En contraste forcé, le navigateur remplace les couleurs mais PAS les
+   `background-image`. Les trames du degré de certitude deviendraient
+   invisibles ; le filet, lui, survit — et comme c'est le canal principal, le
+   degré reste lisible. On retire les trames plutôt que de laisser un canal à
+   moitié mort suggérer une distinction qui n'existe plus. */
+@media (forced-colors: active) {
+    .regle--incertain, .regle--choix-produit { background-image: none; }
+    .jalon { border-color: currentColor; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   9. LES ÉCRANS DE CONSULTATION
+
+   Ajouté après coup, et dans CE fichier plutôt que dans un second : la charte
+   dit que tout est dans un fichier servi tel quel, et deux feuilles auraient
+   rendu cette phrase fausse dès le premier écran.
+
+   Quatre règles tenues sans exception dans ce bloc, parce que ce sont celles
+   qu'un ajout tardif casse en premier :
+
+     • AUCUN OR hors d'un montant. Les jours restants, les compteurs de
+       prorogations et les rangs d'injonction sont des nombres mais pas des
+       sommes : ils prennent `.montant-neutre`, qui est la police mono et les
+       chiffres tabulaires SANS la couleur. La forme sépare, la teinte se tait.
+     • AUCUN INDIGO sur un élément non cliquable. Les transitions ouvertes, les
+       places du chemin et les compteurs n'en prennent pas : un seul indigo
+       décoratif rendrait faux le signal « on peut cliquer ici » pour toute la
+       page.
+     • AUCUNE COULEUR pour porter un degré de certitude. Le bloc 4 garde le
+       monopole du cinquième rôle ; rien ici ne le touche.
+     • AUCUN CHIFFRE DU DOSSIER. Pas un délai, pas un montant, pas un seuil
+       dans une déclaration : la séparation que `config/packages/tasswiya.yaml`
+       tient depuis le début vaut aussi pour une feuille de style.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ─── Navigation et fil ─────────────────────────────────────────────────── */
+
+.navigation {
+    display: flex;
+    flex-wrap: wrap;          /* à 375 px, les trois liens passent à la ligne */
+    gap: 0.25rem 1rem;
+    padding: 0.25rem 0 1rem;
+    border-bottom: 1px solid var(--filet);
+    font-size: 0.92rem;
+}
+
+.fil { margin: 1rem 0 0; color: var(--encre-sourde); font-size: 0.9rem; }
+.parties { margin: 0.25rem 0 1rem; }
+
+/* ─── UN NOMBRE QUI N'EST PAS UNE SOMME ────────────────────────────────────
+   Jours restants, nombre de prorogations, rang d'une injonction. Il prend la
+   police mono et `tabular-nums` — parce que tout nombre de ce produit est en
+   mono, et qu'une colonne de nombres qui ondule est illisible — mais PAS
+   l'or. L'or est le rôle « valeur », et un nombre de jours n'est pas une
+   valeur. C'est la distinction que ce jeton existe pour tenir. */
+.montant-neutre {
+    font-family: var(--police-nombre);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Le renvoi au dossier de règles, sous une règle affichée. */
+.renvoi { font-family: var(--police-nombre); font-size: 0.95em; }
+
+/* L'alerte d'une règle INCERTAINE. Achromatique comme tout le cinquième
+   rôle : elle n'emprunte pas le rouge de « délai expiré », sinon ce rouge
+   voudrait dire deux choses et ne dirait plus rien. Elle se signale par le
+   trait tireté du haut — qui reprend le filet du degré — et par le mot. */
+.regle__alerte {
+    margin: 0.4rem 0 0;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--degre-trait);
+    font-size: 0.88rem;
+}
+
+/* ─── LE COMPTEUR DU DÉLAI PÉNAL ───────────────────────────────────────────
+   Un seul grand nombre par écran. S'il y en avait deux, aucun ne serait
+   grand. En encre et non en or : des jours ne sont pas des dirhams. En rouge
+   quand le délai est échu, parce que le rouge est le rôle « perdu » — et
+   c'est ce rouge que la démonstration fait apparaître au seul passage du
+   temps. */
+.compteur {
+    margin: 1.25rem 0;
+    padding: 1rem;
+    background: var(--papier-creux);
+    border: 1px solid var(--filet);
+    border-radius: var(--rayon);
+}
+.compteur--echu { border-color: var(--rouge-filet); background: var(--rouge-doux); }
+.compteur--echu .compteur__valeur { color: var(--rouge-encre); }
+
+.compteur__valeur {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;          /* à 375 px, l'unité passe sous le nombre */
+    align-items: baseline;
+    gap: 0.5rem;
+    line-height: 1.1;
+}
+.compteur__valeur .montant-neutre { font-size: 2.6rem; letter-spacing: -0.03em; }
+.compteur__unite {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--encre-sourde);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.compteur__propos { margin: 0.5rem 0 0; }
+.compteur__arabe { margin: 0.4rem 0 0; }
+
+/* ─── LE TABLEAU DES CINQ HORLOGES ──────────────────────────────────────── */
+
+.horloges__code {
+    display: inline-block;
+    min-width: 2.1em;
+    padding: 0 0.25em;
+    margin-right: 0.3em;
+    border: 1px solid var(--filet-appuye);
+    border-radius: 3px;
+    font-family: var(--police-nombre);
+    font-size: 0.78rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* L'horloge dont tout le projet parle, et elle seule. Si les cinq lignes
+   étaient marquées, aucune ne le serait. Le signal est un FILET à gauche et
+   non un fond : un fond aurait demandé une teinte, et les quatre rôles sont
+   déjà pris. */
+.horloges__pivot > th:first-child {
+    border-left: 3px solid var(--encre);
+    padding-left: 0.45rem;
+}
+
+/* La ligne d'effet, rattachée visuellement à la ligne qui la précède : sa
+   bordure supérieure est retirée pour que les deux se lisent comme une. */
+.horloges__effet > td {
+    border-top: 0;
+    padding-top: 0;
+    font-size: 0.88rem;
+    color: var(--encre-sourde);
+}
+
+.absences { margin: 0.4rem 0 0; }
+.absences dt { margin-top: 0.5rem; }
+.absences dd { margin: 0.1rem 0 0 0; }
+
+/* ─── LE CHEMIN DES PLACES ──────────────────────────────────────────────── */
+
+.chemin {
+    display: flex;
+    flex-wrap: wrap;          /* le chemin se replie, il ne fait pas défiler la
+                                 page : à 375 px il tient sur plusieurs lignes */
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+    padding: 0;
+    list-style: none;
+}
+.chemin__place { margin: 0; }
+.chemin__place--courante { font-weight: 600; }
+
+/* Les places où le dossier n'est pas. Achromatiques et en retrait : elles
+   sont le décor du chemin, pas un état. Leur donner un rôle de couleur
+   laisserait croire que le dossier y est aussi. */
+.jalon--inerte {
+    color: var(--encre-sourde);
+    background: transparent;
+    border-color: var(--filet);
+    font-weight: 400;
+}
+
+.chemin__ici {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--encre-sourde);
+}
+
+/* ─── LES TRANSITIONS, OUVERTES OU BARRÉES ─────────────────────────────── */
+
+.transitions { margin: 0.75rem 0; padding: 0; list-style: none; }
+
+.transition {
+    margin: 1rem 0;
+    padding: 0.6rem 0 0.6rem 0.8rem;
+    border-left: 3px solid var(--filet-appuye);
+}
+
+/* Une transition ouverte ne prend PAS d'indigo : elle n'est pas cliquable.
+   Son signal est le filet plein en encre, et la pastille « ouverte ». */
+.transition--ouverte { border-left-color: var(--encre); }
+
+/* UNE TRANSITION BARRÉE EST VISIBLEMENT BARRÉE, par deux canaux : le nom est
+   rayé, et la flèche porte une croix. Le rayé seul se perdrait dans une
+   impression monochrome mal réglée ; la croix est dessinée en BORDURES, donc
+   elle survit à un navigateur qui ne rend ni fonds ni images. */
+.transition--barree { border-left-color: var(--rouge-filet); }
+.transition--barree .transition__nom {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    text-decoration-color: var(--rouge-encre);
+    color: var(--encre-sourde);
+}
+
+.transition__entete {
+    margin: 0 0 0.35rem;
+    display: flex;
+    flex-wrap: wrap;          /* mesuré à 375 px : nom, flèche, cible et
+                                 pastille passent à la ligne sans déborder */
+    align-items: center;
+    gap: 0.4rem 0.5rem;
+}
+.transition__nom { font-weight: 600; }
+.transition__cible { color: var(--encre-sourde); }
+
+/* La flèche est DESSINÉE et non écrite : un caractère de flèche dans le
+   gabarit serait lu à voix haute par un lecteur d'écran, alors que « barrée »
+   est déjà dit par la pastille. Elle porte donc `aria-hidden` et vit ici. */
+.transition__fleche {
+    position: relative;
+    display: inline-block;
+    width: 1.6rem;
+    height: 0.65rem;
+    border-bottom: 2px solid var(--filet-appuye);
+}
+.transition__fleche::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: -0.25rem;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-right: 2px solid var(--filet-appuye);
+    border-bottom: 2px solid var(--filet-appuye);
+    transform: rotate(-45deg);
+}
+.transition--barree .transition__fleche { border-bottom-color: var(--rouge-encre); }
+.transition--barree .transition__fleche::before {
+    content: "";
+    position: absolute;
+    left: 0.45rem;
+    bottom: -0.1rem;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-left: 2px solid var(--rouge-encre);
+    border-bottom: 2px solid var(--rouge-encre);
+    transform: rotate(45deg);
+}
+.transition--barree .transition__fleche::after {
+    border-right-color: var(--rouge-encre);
+    border-bottom-color: var(--rouge-encre);
+}
+
+/* Le préalable de forme, posé AVANT les règles d'une transition barrée.
+   Il n'a ni filet de degré ni trame : ce n'est pas une règle, c'est l'état du
+   dossier dit en une phrase — « aucune demande n'est en attente ». Sans lui,
+   les trois conditions de l'article 325 al. 8 se lisaient, sous un dossier
+   déjà prorogé, comme si la prorogation acquise était incomplète. */
+.transition__prealable {
+    margin: 0.3rem 0 0.6rem;
+    padding-left: 0.6rem;
+    border-left: 1px solid var(--filet-appuye);
+    color: var(--encre-sourde);
+    font-size: 0.9rem;
+}
+
+.transition__nature { margin: 0.3rem 0; font-size: 0.9rem; }
+
+/* ─── L'HABILITATION, QUI N'EST PAS UNE RÈGLE ─────────────────────────────
+   Visuellement DISTINCTE des blocs `.regle` : pas de filet plein à gauche,
+   pas de trame de degré, pas d'étiquette de degré. Une habilitation absente
+   est l'état de l'utilisateur et non celui du dossier ; lui donner
+   l'apparence d'une règle la ferait entrer dans la carte des certitudes, où
+   elle n'a rien à faire. */
+.habilitation {
+    margin: 0.75rem 0;
+    padding: 0.6rem 0.8rem;
+    background: var(--papier-creux);
+    border: 1px dashed var(--filet-appuye);
+    border-radius: var(--rayon);
+    font-size: 0.92rem;
+}
+.habilitation__etiquette {
+    display: inline-block;
+    margin-bottom: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--encre-sourde);
+}
+.habilitation p { margin: 0.2rem 0; }
+
+/* Le diagnostic incohérent — qui ne doit jamais s'afficher, et c'est pour
+   cela qu'il est écrit. Il emprunte l'apparence de l'avertissement parce que
+   c'en est un : un écran qui le cacherait grise un bouton en silence. */
+.incoherence {
+    margin: 0.75rem 0;
+    padding: 0.6rem 0.8rem;
+    background: var(--rouge-doux);
+    border: 2px solid var(--rouge-encre);
+    border-radius: var(--rayon);
+    color: var(--rouge-encre);
+    font-size: 0.92rem;
+}
+
+/* ─── LES MESURES DE CONTRÔLE JUDICIAIRE ──────────────────────────────────
+   Une liste et non un booléen : l'article 325 al. 7 dit « une ou plusieurs »,
+   et un booléen effacerait la pluralité que le texte autorise. */
+.mesures { margin: 0.5rem 0; padding: 0; list-style: none; }
+.mesures__item {
+    position: relative;
+    padding: 0.3rem 0 0.3rem 1.1rem;
+    border-bottom: 1px solid var(--filet);
+}
+.mesures__item::before {
+    content: "";
+    position: absolute;
+    left: 0.1rem;
+    top: 0.85em;
+    width: 0.45rem;
+    height: 0.45rem;
+    border: 2px solid var(--encre-sourde);
+    border-radius: 50%;
+}
+
+/* ─── La ligne d'explication sous un montant indéterminé ───────────────── */
+.montants__raison > td {
+    border-top: 0;
+    padding-top: 0;
+    font-size: 0.88rem;
+    color: var(--encre-sourde);
+    /* Annule l'alignement à droite que `td:has(.montant)` impose aux cellules
+       de montant : cette ligne-ci porte une phrase, pas un nombre. */
+    text-align: left;
+}
+
+/* ─── Les encarts typés de la démonstration ───────────────────────────────
+   Le FILET gauche change, pas la teinte de fond. Trois fonds colorés de plus
+   et le rouge de l'avertissement juridique cesserait de se distinguer — or
+   c'est le seul bandeau de l'écran qui doive être vu avant tout le reste. */
+.encart--demonstration { border-left-color: var(--encre); }
+.encart--passe { border-left-color: var(--vert-encre); }
+.encart--refus { border-left-color: var(--rouge-encre); }
+
+/* ─── LE RÉGLAGE DE L'HORLOGE ───────────────────────────────────────────── */
+
+.reglage { margin: 0.75rem 0 1.5rem; }
+
+.reglage__sauts {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--filet);
+    border-radius: var(--rayon);
+}
+.reglage__sauts legend {
+    padding: 0 0.4rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--encre-sourde);
+}
+.reglage__saut {
+    display: flex;
+    flex-wrap: wrap;          /* à 375 px, le propos passe sous le bouton */
+    align-items: center;
+    gap: 0.4rem 0.75rem;
+    margin: 0.5rem 0;
+}
+.reglage__saut .bouton { flex: none; }
+
+.reglage__libre {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1rem 0 0;
+}
+.reglage__libre label { font-size: 0.92rem; }
+
+/* Le champ nombre prend la police mono comme tout nombre de ce produit, et
+   une largeur FIXE : à `width: 100%` il serait aussi large que la page pour
+   accueillir deux chiffres. */
+.reglage__libre input[type="number"] {
+    width: 6.5rem;
+    padding: 0.45rem 0.5rem;
+    border: 1px solid var(--filet-appuye);
+    border-radius: var(--rayon);
+    background: var(--papier-releve);
+    color: var(--encre);
+    font-family: var(--police-nombre);
+    font-variant-numeric: tabular-nums;
+    font-size: 1rem;
+}
+
+/* ─── À l'impression ──────────────────────────────────────────────────────
+   Le réglage de l'horloge et la navigation ne s'impriment pas : un bouton sur
+   du papier est un bouton qu'on ne peut pas presser, et il prend la place
+   d'une règle. Le compteur et les transitions, eux, s'impriment — et la croix
+   de la transition barrée survit, parce qu'elle est faite de bordures. */
+@media print {
+    .navigation,
+    .reglage,
+    form { display: none; }
+    .compteur { background: none; border: 1px solid currentColor; }
+    .transition { break-inside: avoid; }
+    .habilitation { break-inside: avoid; }
+}
+
+/* ─── En contraste forcé ──────────────────────────────────────────────────
+   Même discipline que le bloc 8 : on retire ce qui ne survit pas plutôt que
+   de laisser un canal à moitié mort suggérer une distinction disparue. La
+   croix de la transition barrée est en bordures, donc elle est repeinte par
+   le système et reste lisible ; le rayé du nom l'est aussi. */
+@media (forced-colors: active) {
+    .jalon--inerte { border-color: currentColor; }
+    .transition__fleche,
+    .transition__fleche::before,
+    .transition__fleche::after { border-color: currentColor; }
+}

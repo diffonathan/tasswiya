@@ -1,0 +1,102 @@
+# Environnement de développement de Tasswiya.
+#
+#   docker compose up -d                              démarre PostgreSQL et PHP
+#   docker compose exec php bin/console doctrine:migrations:migrate
+#   docker compose exec php vendor/bin/phpunit
+#
+# Il n'y a ni PHP, ni Composer, ni CLI Symfony sur ce poste : TOUT passe par
+# `docker compose exec php …`.
+
+name: tasswiya
+
+services:
+  postgres:
+    # 16 et non « latest » : le projet publiera des mesures, et une base qui
+    # change de version sous les mesures les invalide.
+    image: postgres:16.11-alpine
+    container_name: tasswiya-postgres
+    environment:
+      POSTGRES_USER: tasswiya
+      POSTGRES_PASSWORD: tasswiya
+      POSTGRES_DB: tasswiya
+    ports:
+      # 5434 et non 5432 : deux autres bases de développement de ce poste
+      # occupent déjà 5432 et 5433. Trois projets doivent pouvoir vivre
+      # ensemble sans qu'on ait à en arrêter un.
+      - "5434:5432"
+    volumes:
+      - tasswiya-donnees:/var/lib/postgresql/data
+    # 256 Mo. La cible de déploiement plafonne à 512 Mo pour PHP ET PostgreSQL
+    # réunis (contrainte n° 2) : la base doit donc tenir dans la moitié, et
+    # c'est ici qu'on s'en assure. Développer plus large qu'on ne déploie,
+    # c'est découvrir le plafond le jour de la mise en ligne.
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tasswiya"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  php:
+    build:
+      context: .
+      # Le Dockerfile de DÉVELOPPEMENT est ici, nommé explicitement. Celui de
+      # la racine est celui de PRODUCTION, et il doit y rester : un hébergeur
+      # qui construit depuis un dépôt cherche un `Dockerfile` à la racine, et
+      # s'il n'en trouve pas il DEVINE la nature du projet.
+      dockerfile: docker/php/Dockerfile
+    container_name: tasswiya-php
+    ports:
+      # 8001 : 8000 est déjà pris par un autre projet de ce poste.
+      - "8001:8000"
+    volumes:
+      # Le code vit sur le poste et n'est que monté : on édite dans son
+      # éditeur habituel, le conteneur voit la modification aussitôt.
+      - .:/app
+
+      # MAIS PAS `vendor/`, qui reste dans un volume Docker.
+      #
+      # Chaque requête Symfony ouvre plus de mille fichiers de `vendor/`. À
+      # travers le pont de fichiers de Docker Desktop, chacun coûte quelques
+      # millisecondes : sur le dépôt voisin, l'amorçage seul mettait 4 secondes
+      # — mesuré — contre 0,23 s une fois `vendor/` dans un volume.
+      #
+      # Contrepartie ASSUMÉE : `vendor/` n'existe pas sur le poste, donc
+      # l'éditeur n'y trouve pas les sources de Symfony pour l'autocomplétion.
+      # `composer` doit tourner DANS le conteneur — ce qui était de toute façon
+      # obligatoire, puisque Composer n'est pas installé ici.
+      - tasswiya-vendor:/app/vendor
+
+      # `var/` pour la même raison, et elle est pire : le conteneur de services
+      # de Symfony s'écrit en plusieurs milliers de fichiers dans
+      # `var/cache/`, et les ÉCRIT à travers le pont. Un volume divise le temps
+      # du premier démarrage et évite que l'antivirus de Windows inspecte
+      # chaque fichier de cache.
+      - tasswiya-var:/app/var
+
+    # Aucune variable DATABASE_URL ici, volontairement. Une variable
+    # d'environnement du conteneur écrase TOUT : le `.env`, le `.env.test`, et
+    # jusqu'aux valeurs déclarées dans `phpunit.xml.dist`. Sur le dépôt voisin
+    # la suite de tests a tourné une fois sur la base de DÉVELOPPEMENT à cause
+    # de cela, et l'a vidée. Le `.env` est la seule source de configuration.
+    # 768 Mo, et c'est délibérément PLUS que le plafond de déploiement.
+    #
+    # Le pic n'est pas la requête, c'est `composer install` : il résout un
+    # graphe de dépendances en mémoire et dépasse largement ce que consomme
+    # l'application servie. Un conteneur bridé à 192 Mo se fait tuer par le
+    # noyau PENDANT l'installation, et le message est « exit code 137 » — qui
+    # ne nomme ni composer, ni la mémoire.
+    #
+    # Le plafond de 512 Mo se vérifie donc sur l'image de PRODUCTION, pas ici.
+    # `memory_limit` de PHP reste à 256 Mo (docker/php/php.ini), ce qui borne
+    # une requête emballée indépendamment de cette limite de conteneur.
+    mem_limit: 768m
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  tasswiya-donnees:
+  tasswiya-vendor:
+  tasswiya-var:

@@ -1,0 +1,12 @@
+twig:
+    file_name_pattern: '*.twig'
+    globals:
+        # Disponible dans TOUS les gabarits sans qu'un contrôleur ait à y
+        # penser : l'avertissement et la mention de source doivent figurer sur
+        # chaque écran (contrainte n° 1). Une variable qu'il faut passer page
+        # par page finit par manquer sur une page.
+        source_officielle: '%tasswiya.source_officielle%'
+
+when@test:
+    twig:
+        strict_variables: true

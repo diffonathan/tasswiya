@@ -1,0 +1,8 @@
+doctrine_migrations:
+    migrations_paths:
+        # Des migrations VERSIONNÉES et non un `schema:update`. Sur un produit
+        # dont la valeur est la traçabilité d'une règle de droit, l'historique
+        # du schéma fait partie de la preuve : on doit pouvoir dire quand un
+        # champ est apparu et pourquoi.
+        'DoctrineMigrations': '%kernel.project_dir%/migrations'
+    enable_profiler: '%kernel.debug%'

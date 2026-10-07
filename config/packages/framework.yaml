@@ -1,0 +1,28 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+
+    # Les écrans de démonstration POSTent : pousser l'horloge modifie l'état de
+    # l'application. Une route qui modifie l'état ne s'ouvre pas à une requête
+    # venue d'ailleurs, même sur une démonstration — et le composant
+    # `security-csrf` est déjà installé, donc le jeton ne coûte rien de plus.
+    #
+    # `csrf_protection` seul, sans `framework.form` : ce projet n'a pas le
+    # composant Form, et ses formulaires sont du HTML écrit à la main. C'est
+    # cette clé qui enregistre `security.csrf.token_manager`, dont
+    # `AbstractController::isCsrfTokenValid()` et la fonction Twig
+    # `csrf_token()` ont besoin.
+    csrf_protection: true
+
+    session:
+        cookie_secure: auto
+        cookie_samesite: lax
+        handler_id: null
+
+    php_errors:
+        log: true
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file

@@ -1,0 +1,42 @@
+framework:
+    messenger:
+        failure_transport: echecs
+
+        transports:
+            # Transport DOCTRINE, et ce n'est pas un pis-aller.
+            #
+            # Redis ou RabbitMQ demanderaient un troisieme conteneur, donc une
+            # troisieme part des 512 Mo du deploiement (contrainte n° 2) — et un
+            # projet de cette liste n'a deja pas pu etre mis en ligne pour avoir
+            # ignore ce plafond. PostgreSQL est la de toute facon ; la file y vit
+            # dans une table, et la transaction qui enregistre un evenement de
+            # dossier peut englober l'envoi du message.
+            asynchrone:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    table_name: messenger_messages
+                retry_strategy:
+                    max_retries: 3
+                    delay: 2000
+                    multiplier: 3
+
+            echecs:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    table_name: messenger_messages
+                    queue_name: echecs
+
+        # Aucun routage encore : les messages du domaine sont ecrits avec le
+        # domaine. Le transport, lui, est deja la et `debug:messenger` le voit.
+        routing: []
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                # En test, les messages sont CONSERVES et non traites : le test
+                # affirme « ce message a ete envoye », ce qui est la vraie
+                # assertion. Les faire executer melangerait le declenchement et
+                # le traitement dans un seul test.
+                asynchrone: 'in-memory://'
+                echecs: 'in-memory://'

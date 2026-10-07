@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 64" width="232" height="64"
+     role="img" aria-label="Tasswiya — تسوية">
+  <title>Tasswiya — تسوية</title>
+  <desc>Le symbole, le nom en caractères latins, et le mot arabe dont il est la transcription : تسوية, « régularisation », de la racine س-و-ي, rendre égal.</desc>
+
+  <defs>
+    <linearGradient id="champ" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#a9a5ff"/>
+      <stop offset="1" stop-color="#4d47c7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ══ Le symbole, inchangé ═════════════════════════════════════════════
+       Repris de `logo.svg` au trait près. Un en-tête qui redessinerait le
+       symbole en plus petit finirait par en avoir deux versions.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <rect width="64" height="64" rx="15" fill="url(#champ)"/>
+  <rect x="12" y="20" width="40" height="7" rx="3.5" fill="#FFFFFF"/>
+  <rect x="12" y="37" width="21" height="7" rx="3.5" fill="#FFFFFF"/>
+  <rect x="39" y="37" width="13" height="7" rx="3.5" fill="#f9a825"/>
+
+  <!-- ══ Le nom ═══════════════════════════════════════════════════════════
+
+       En `currentColor`, et non en indigo : posé dans un en-tête, le nom est
+       du TEXTE, et le texte suit l'encre de la page. L'indigo est le rôle
+       « action » — le réserver aux liens et aux boutons est ce qui fait qu'un
+       utilisateur sait, sans réfléchir, ce sur quoi il peut cliquer. Un
+       logotype indigo rendrait ce signal faux dès le premier écran.
+
+       La pile de polices est celle du jeton « police-texte » de
+       `public/charte/tasswiya.css`. Si aucune n'est disponible, le rendu
+       glisse mais ne casse pas : le symbole, lui, ne dépend d'aucune police.
+
+       ATTENTION, ET C'EST UN PIÈGE QUI A COÛTÉ UNE PASSE : un commentaire
+       XML ne peut pas contenir deux tirets consécutifs. Écrire le nom d'un
+       jeton CSS tel quel dans un commentaire de SVG rend le fichier
+       MALFORMÉ, et le navigateur s'arrête à la première erreur — ici, le
+       symbole s'affichait et le nom disparaissait, sans aucun message dans
+       la page qui l'incluait. Les noms de jetons se citent donc sans leur
+       préfixe dans tous les fichiers de ce dossier.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <text x="80" y="32"
+        font-family="ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="27" font-weight="600" letter-spacing="-0.6"
+        fill="currentColor">Tasswiya</text>
+
+  <!-- Le mot arabe, dont « Tasswiya » n'est que la transcription. Il est ici
+       parce que la seule version officielle de la loi n° 71.24 est en arabe,
+       et que le produit affiche de l'arabe verbatim : la marque le dit dès
+       l'en-tête au lieu de laisser croire à un outil francophone.
+
+       En encre sourde, jamais en or — l'or ne porte QUE des montants, et
+       c'est la règle la plus facile à enfreindre sans y penser.
+       Police distincte : les piles latines ne couvrent pas toutes l'arabe.
+
+       PAS de `direction="rtl"` ici, et c'est délibéré. Avec `text-anchor`
+       laissé à `start`, « start » devient le bord DROIT dès que la direction
+       est RTL : le mot partait vers la gauche depuis x=80 et chevauchait le
+       symbole. Un mot arabe isolé est de toute façon façonné de droite à
+       gauche par le moteur de rendu ; la direction du conteneur ne sert que
+       lorsqu'on mélange les écritures dans une même ligne. -->
+  <text x="80" y="53"
+        font-family="'Segoe UI', 'Noto Naskh Arabic', 'Geeza Pro', 'Traditional Arabic', 'Times New Roman', serif"
+        font-size="17" fill="currentColor" opacity="0.6">تسوية</text>
+</svg>

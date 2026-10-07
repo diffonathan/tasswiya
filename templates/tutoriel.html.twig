@@ -1,0 +1,1162 @@
+{#
+   ╔═══════════════════════════════════════════════════════════════════════╗
+   ║  TASSWIYA — LE TUTORIEL INTERACTIF                                    ║
+   ╚═══════════════════════════════════════════════════════════════════════╝
+
+   LA RÈGLE D'OR, REPRISE DU TUTORIEL DE MIZAN : AUCUNE SORTIE N'EST
+   MAQUETTÉE. Pas une valeur de cet écran n'est écrite dans ce fichier. Les
+   échéances viennent de `App\Domaine\Horloge\CalculateurDHorloges`, les refus
+   de `WorkflowInterface::buildTransitionBlockerList()`, les articles et les
+   degrés de `App\Workflow\CatalogueDesBlocages`, le graphe de
+   `WorkflowInterface::getDefinition()`, et l'extrait de configuration est LU
+   SUR LE DISQUE. Si une règle change, cet écran change ; s'il se trompe,
+   c'est que le moteur se trompe.
+
+   CE QUE CE GABARIT NE FAIT JAMAIS :
+
+    • il n'écrit aucun chiffre de droit. Les délais, les durées et les dates
+      sortent du moteur ; là où il faudrait une valeur, il y a un RENVOI à
+      `LOI.md`, parce qu'une valeur recopiée dans un gabarit dérive et qu'un
+      renvoi reste juste ;
+
+    • il n'attribue jamais une règle à la loi. L'attribution affichée est
+      exactement celle que `RegleAppliquee::attribution()` autorise, et elle
+      ne dit « loi n° 71.24 » que pour un degré ÉTABLI ;
+
+    • il n'écrit jamais « la loi limite à une prolongation ». La loi 71.24 ne
+      limite pas le nombre de prorogations ; le quota est un CHOIX_PRODUIT, et
+      l'écran le dit LÀ OÙ IL BLOQUE ;
+
+    • il ne porte aucun avertissement juridique propre. L'avertissement est
+      dans `base.html.twig`, donc sur tous les écrans : une mention qu'il faut
+      penser à repasser page par page finit par manquer sur une page.
+#}
+{% extends 'base.html.twig' %}
+
+{% block titre %}Tasswiya — ce que ce projet a résolu{% endblock %}
+
+{% block tete %}
+    {# La mise en page propre à cet écran. Second fichier et non trois lignes
+       dans la charte : la commande d'horloge et le graphe d'états ne servent
+       qu'ici, et chaque autre page n'a pas à les télécharger. Aucune valeur
+       de couleur n'y est écrite — tout vient des jetons de `tasswiya.css`. #}
+    <link rel="stylesheet" href="{{ asset('charte/tutoriel.css') }}">
+{% endblock %}
+
+{#
+   ─── LES MACROS ────────────────────────────────────────────────────────────
+
+   Une règle, un blocage, une conjonction et un graphe s'affichent plusieurs
+   fois dans cette page. Écrits une fois, ils ne peuvent pas dériver entre
+   deux sections — et surtout, le traitement visuel du degré de certitude ne
+   peut pas être oublié quelque part.
+#}
+
+{% macro regle(r, etiquettes) %}
+    {#
+       Le cinquième rôle de la charte, appliqué. La classe vient du degré
+       porté par l'objet et de rien d'autre : filet plein pour ETABLI, double
+       pour PROBABLE, tireté + hachures pour INCERTAIN, pointillé + grille de
+       points + retrait pour CHOIX_PRODUIT. Aucune couleur : le degré survit
+       au noir et blanc, au daltonisme et à l'impression par construction.
+    #}
+    <div class="regle regle--{{ r.degre.value|replace({'_': '-'}) }}">
+        <span class="regle__degre">{{ etiquettes[r.degre.value] }}</span>
+        <p class="regle__enonce">{{ r.enonce }}</p>
+
+        {% if r.arabeSource %}
+            {# Le verbatim arabe là où le mot compte. Seule la version arabe
+               du Bulletin officiel fait foi : l'énoncé français ci-dessus est
+               une traduction de travail, et c'est cette ligne qui est le
+               texte. #}
+            <p class="arabe tut-verbatim" lang="ar" dir="rtl">{{ r.arabeSource }}</p>
+        {% endif %}
+
+        <p class="regle__attribution">{{ r.attribution }}</p>
+
+        {% if r.renvoiLoiMd %}
+            <p class="regle__attribution">
+                Arbitrage écrit dans <span class="tut-renvoi">{{ r.renvoiLoiMd }}</span>
+            </p>
+        {% endif %}
+
+        {% if r.exigeUneAlerte %}
+            {# `LOI.md` § 0 : une règle incertaine ALERTE au lieu de conclure.
+               L'alerte est achromatique, parce que le degré est déjà porté
+               par le filet et que le rouge appartient à « délai expiré ». #}
+            <p class="tut-alerte">
+                <strong>Ce point n'est pas tranché</strong> — le produit
+                signale et bloque, il ne conclut pas. À faire trancher par un
+                avocat.
+            </p>
+        {% endif %}
+    </div>
+{% endmacro %}
+
+{% macro blocages(liste, etiquettes, montrerExpression = true) %}
+    {% import _self as m %}
+    {% if liste is empty %}
+        <p><span class="oui">Transition franchissable.</span> Le moteur n'oppose aucun blocage.</p>
+    {% else %}
+        {% for b in liste %}
+            {% if b.parLeMarquage %}
+                {# Ce n'est pas une garde : c'est la FORME DU GRAPHE. La
+                   transition ne part pas de la place où se trouve le dossier,
+                   et aucune garde n'a eu à se prononcer. L'exigence est
+                   structurelle. #}
+                <p>
+                    <span class="non">Refusée par le marquage.</span>
+                    La transition ne part pas de la place occupée par le dossier :
+                    ce n'est pas une garde qui refuse, c'est le graphe. Aucun rôle,
+                    aucune requête ne peut contourner la forme du graphe.
+                </p>
+            {% elseif b.parLExpression %}
+                <p>
+                    <span class="non">Refusée par la garde de <code>workflow.yaml</code>.</span>
+                    Le composant évalue la garde comme <em>une</em> expression et rend
+                    donc <em>un</em> blocage pour toute la conjonction. Voici
+                    l'expression telle qu'il la rend&nbsp;:
+                </p>
+                {% if montrerExpression %}
+                    <p class="tut-expression">{{ b.expression }}</p>
+                {% else %}
+                    <p class="sourd">La même expression que ci-dessus, mot pour mot&nbsp;:
+                    seule l'identité a changé.</p>
+                {% endif %}
+            {% elseif b.regle %}
+                {# Un code du catalogue : le refus porte son article, son
+                   degré et son renvoi. C'est ce qui permet de griser un
+                   bouton AVEC son info-bulle, au lieu de le griser en
+                   silence. #}
+                <p><span class="non">Refusée</span> — code de blocage <code>{{ b.code }}</code>&nbsp;:</p>
+                {{ m.regle(b.regle, etiquettes) }}
+            {% else %}
+                <p><span class="non">Refusée</span> — <code>{{ b.code }}</code> : {{ b.message }}</p>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endmacro %}
+
+{% macro conjonctions(liste) %}
+    {% if liste is not empty %}
+        <div class="defilant">
+            <table class="tut-conjonction">
+                <thead>
+                    <tr>
+                        <th scope="col">Membre de la garde</th>
+                        <th scope="col">Nature</th>
+                        <th scope="col">Valeur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in liste %}
+                        <tr>
+                            <td>{{ c.source }}</td>
+                            <td class="sourd">{{ c.nature }}</td>
+                            <td>
+                                {% if c.valeur is null %}
+                                    <span class="sourd">non évalué</span>
+                                {% elseif c.valeur %}
+                                    <span class="oui">vrai</span>
+                                {% else %}
+                                    <span class="non">faux</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="sourd">
+            Chaque membre est évalué par les mêmes appels que le moteur&nbsp;: la
+            méthode du dossier pour un <code>subject.xxx()</code>, le vote de
+            <code>App\Security\Voter\DossierVoter</code> pour un
+            <code>is_granted()</code>. L'expression découpée n'est pas recopiée du
+            fichier de configuration&nbsp;: elle sort du <code>TransitionBlocker</code>.
+        </p>
+    {% endif %}
+{% endmacro %}
+
+{% macro graphe(lignes) %}
+    {% if lignes is empty %}
+        <p class="sourd">Aucune transition ne part de cette place : l'état est terminal.</p>
+    {% else %}
+        <ul class="tut-graphe">
+            {% for t in lignes %}
+                <li class="tut-transition{{ t.ouverte ? '' : ' tut-transition--barree' }}">
+                    <span class="tut-transition__nom">{{ t.nom }}</span>
+                    <span class="tut-transition__vers">→ {{ t.vers|join(', ') }}</span>
+                    {% if t.declencheeParLeTemps %}
+                        <span class="tut-marque">par le temps</span>
+                    {% endif %}
+                    {% if t.irreversible %}
+                        <span class="tut-marque">irréversible</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endmacro %}
+
+{% block contenu %}
+    {% import _self as m %}
+
+    <h1>Ce que ce projet a résolu, et ce qu'il n'a pas résolu</h1>
+
+    <p class="tut-intro">
+        Tasswiya pilote les délais de régularisation du chèque sans provision au
+        Maroc, sous la loi n° 71.24. Ce tutoriel n'explique pas où cliquer&nbsp;: il
+        montre les quatre choses que le projet a dû trancher, et il les montre
+        en les faisant tourner. <strong>Aucune sortie de cette page n'est
+        maquettée</strong>&nbsp;: les échéances sortent du calculateur d'horloges,
+        les refus de la machine à états, les articles et les degrés de certitude
+        du catalogue des blocages, et l'extrait de configuration est lu sur le
+        disque à l'instant où vous chargez la page.
+    </p>
+
+    <ol class="tut-sommaire">
+        <li><span class="tut-rang">1</span> <a href="#cinq-horloges">Pourquoi cinq horloges et pas une — et pourquoi un dossier peut n'avoir <em>aucun</em> délai</a></li>
+        <li><span class="tut-rang">2</span> <a href="#refus">Ce que la machine à états refuse, et par quoi exactement</a></li>
+        <li><span class="tut-rang">3</span> <a href="#certitude">Ce qui vient du texte et ce qui vient de nous</a></li>
+        <li><span class="tut-rang">4</span> <a href="#limites">Ce que le projet ne sait pas faire</a></li>
+    </ol>
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       LE MOMENT QUI DOIT SE VOIR
+       ═══════════════════════════════════════════════════════════════════ #}
+
+    <h2 id="moment">Le moment&nbsp;: personne ne clique, et le dossier bascule</h2>
+
+    <p class="tut-question">
+        Déplacez le curseur ci-dessous. À un cran près, le dossier change
+        d'état tout seul — et sur le graphe affiché à côté, la transition qui
+        était barrée s'ouvre.
+    </p>
+
+    <form class="tut-commande" method="get" action="{{ path('tutoriel') }}">
+        <span class="tut-commande__titre">L'écédar a été notifié il y a…</span>
+
+        <div class="tut-crans">
+            {% for cran in crans %}
+                {# Des liens et un formulaire GET, pas une ligne de
+                   JavaScript : la démonstration fonctionne avec les scripts
+                   coupés, chaque cran est une URL qu'on peut coller dans un
+                   message, et le parcours au clavier est le parcours normal. #}
+                <a class="tut-cran" href="{{ path('tutoriel', {jours: cran}) }}"
+                   {% if cran == jours %}aria-current="true"{% endif %}>{{ cran }} j</a>
+            {% endfor %}
+        </div>
+
+        <div class="tut-saisie">
+            <label for="jours">ou un autre nombre de jours&nbsp;:</label>
+            <input type="number" id="jours" name="jours" min="0" max="3650" value="{{ jours }}">
+            <button type="submit" class="bouton bouton--discret">Recalculer</button>
+        </div>
+
+        <p class="sourd tut-fin">
+            Le moteur lit la date du
+            <strong>{{ aujourdHui|date('d/m/Y') }}</strong>, normalisée à minuit
+            parce qu'une échéance légale est un jour et non un instant. Les cinq
+            dossiers de cette page sont construits à partir de cette date&nbsp;:
+            écédar le <strong>{{ calendrier.ecedar|date('d/m/Y') }}</strong>,
+            plainte le {{ calendrier.plainte|date('d/m/Y') }}, injonction
+            bancaire le {{ calendrier.injonction|date('d/m/Y') }}, incident de
+            paiement le {{ calendrier.incident|date('d/m/Y') }}, chèque émis le
+            {{ calendrier.emission|date('d/m/Y') }}.
+        </p>
+    </form>
+
+    <div class="encart">
+        <h3>Ce que ce curseur déplace, et ce qu'il ne déplace pas</h3>
+        <p class="tut-fin">
+            Il ne pousse pas l'horloge de l'application. Ce produit en a une —
+            <code>App\Domaine\Horloge\HorlogeDeDemonstration</code>, aliasée sur
+            <code>Psr\Clock\ClockInterface</code> dans tout le conteneur — mais
+            son décalage est rangé dans un fichier de <code>var/</code>, donc
+            <strong>global à l'installation</strong> et partagé avec la commande
+            console. Une page de documentation qui déplacerait le temps de toute
+            l'installation en étant simplement ouverte serait un piège&nbsp;: les
+            écrans de consultation d'à côté se mettraient à mentir. Un GET ne
+            modifie pas un état partagé.
+        </p>
+        <p class="tut-fin">
+            Le curseur déplace donc l'autre borne du même intervalle&nbsp;: non pas
+            quand on est, mais <strong>quand l'écédar a été notifié</strong> — qui
+            est le point de départ que l'article 325 al. 6 désigne, et le seul.
+            Aucune date n'est forcée dans un dossier existant, rien n'est écrit,
+            rien n'est lu en base. Et c'est la même garde qui répond&nbsp;:
+            <code>App\Workflow\EcouteurDeGardesTemporelles</code> compare
+            l'échéance à l'instant qu'elle lit sur l'horloge injectée. À
+            vingt-neuf jours elle refuse, à trente et un elle laisse passer.
+        </p>
+    </div>
+
+    <div class="tut-deux">
+        <div class="tut-volet">
+            <h3 class="tut-volet__titre">L'horloge H3 — délai de régularisation pénale</h3>
+
+            {% if moment.joursRestants >= 0 %}
+                <p class="tut-compte">{{ moment.joursRestants }}
+                    <span class="tut-compte__unite">jour{{ moment.joursRestants == 1 ? '' : 's' }} restant{{ moment.joursRestants == 1 ? '' : 's' }}</span>
+                </p>
+            {% else %}
+                <p class="tut-compte">{{ moment.joursRestants|abs }}
+                    <span class="tut-compte__unite">jour{{ moment.joursRestants == -1 ? '' : 's' }} au-delà de l'échéance</span>
+                </p>
+            {% endif %}
+
+            <table class="tut-fiche">
+                <tbody>
+                    <tr>
+                        <th scope="row">Point de départ</th>
+                        <td>
+                            {{ moment.h3.depart|date('d/m/Y') }}<br>
+                            <span class="sourd">date de l'écédar, et rien d'autre</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Durée effective</th>
+                        <td>{{ moment.dureeEffective }} jours
+                            <span class="sourd">(délai initial du dossier, plus les prorogations accordées)</span></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Échéance</th>
+                        <td>{{ moment.h3.echeance|date('d/m/Y') }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Dépassée&nbsp;?</th>
+                        <td>
+                            {% if moment.echeanceDepassee %}
+                                <span class="non">oui</span>
+                            {% else %}
+                                <span class="oui">non</span>
+                            {% endif %}
+                            {% if moment.joursRestants == 0 %}
+                                <span class="sourd">— et c'est le piège&nbsp;: le dépassement
+                                est strict, donc le jour de l'échéance le délai court
+                                encore.</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Article</th>
+                        <td>{{ moment.h3.article }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p class="sourd">
+                Ce que l'expiration change&nbsp;: {{ moment.h3.effetSiExpire }}
+            </p>
+        </div>
+
+        <div class="tut-volet">
+            <h3 class="tut-volet__titre">L'état du dossier, et ce que personne n'a cliqué</h3>
+
+            <div class="tut-bascule">
+                <code>{{ moment.etatAvant.value }}</code>
+                {% if moment.franchie %}
+                    <span class="tut-fleche">→</span>
+                    <code>{{ moment.etatApres.value }}</code>
+                {% else %}
+                    <span class="sourd">— le dossier n'a pas bougé</span>
+                {% endif %}
+            </div>
+
+            {% if moment.franchie %}
+                <p>
+                    <span class="jalon jalon--perdu">délai expiré</span>
+                    La transition <code>expirer_delai</code> a été franchie par
+                    <code>WorkflowInterface::apply()</code>, appelé sans aucune condition
+                    propre à ce tutoriel. Rien n'a été saisi, aucun bouton n'a été
+                    pressé&nbsp;: le seul fait nouveau est le passage du temps.
+                </p>
+            {% else %}
+                <p>
+                    <span class="jalon jalon--en-cours">délai en cours</span>
+                    La transition <code>expirer_delai</code> a été <strong>refusée</strong>.
+                    Aucun bouton, aucun rôle, aucune requête forgée ne peut faire expirer
+                    un délai avant son terme.
+                </p>
+                {{ m.blocages(moment.blocages, etiquettesDeDegre) }}
+            {% endif %}
+
+            {# Le graphe AVANT, c'est-à-dire depuis la place où le dossier se
+               trouvait quand on a interrogé le moteur. C'est là que la
+               transition se barre, et c'est la seule chose à regarder quand on
+               déplace le curseur d'un cran. #}
+            <h3 class="tut-volet__titre">
+                Le graphe depuis <code>{{ moment.etatAvant.value }}</code>
+            </h3>
+            {{ m.graphe(moment.grapheAvant) }}
+
+            {% if moment.franchie %}
+                {# Et le graphe de la NOUVELLE place : franchir une transition
+                   ne change pas seulement une étiquette, ça change ce qui est
+                   possible ensuite. Ici l'obstacle procédural à la poursuite
+                   est tombé, et `engager_poursuite` apparaît — ce qui est tout
+                   l'effet que l'article 325 al. 6 attache à l'expiration. #}
+                <h3 class="tut-volet__titre">
+                    Et depuis <code>{{ moment.etatApres.value }}</code>, après la bascule
+                </h3>
+                {{ m.graphe(moment.grapheApres) }}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="encart">
+        <h3>Ce que ces trente jours ne sont pas</h3>
+        <p>
+            Ils ne sont pas un délai de grâce. Dans cet état, le dossier porte
+            {% if moment.etatImpliqueControle or moment.etatApresImpliqueControle %}
+                des mesures de contrôle judiciaire&nbsp;:
+                <strong>{{ moment.controleJudiciaire|join(', ') }}</strong>, et le
+                contrôle continue pendant la prorogation.
+            {% else %}
+                les mesures de contrôle judiciaire enregistrées à l'écédar&nbsp;:
+                <strong>{{ moment.controleJudiciaire|join(', ') }}</strong>.
+            {% endif %}
+            Un écran qui annoncerait « trente jours pour régulariser » sans
+            afficher cela décrirait mal la situation de son propre utilisateur.
+        </p>
+        <p class="sourd tut-fin">
+            En production, la bascule n'est pas déclenchée par une page mais par
+            le Scheduler, qui appelle
+            <code>App\Workflow\ExpirateurDeDelais</code> — le même
+            <code>can()</code>, la même garde&nbsp;:
+            <code>{{ moment.commandeDeProduction }}</code>. La démonstration ne
+            prend aucun raccourci que la production n'aurait pas&nbsp;; elle ne
+            persiste simplement rien.
+        </p>
+    </div>
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       § 1 — POURQUOI CINQ HORLOGES ET PAS UNE
+       ═══════════════════════════════════════════════════════════════════ #}
+
+    <section class="tut-chapitre" id="cinq-horloges">
+        <h2><span class="tut-rang">1</span> Pourquoi cinq horloges et pas une</h2>
+
+        <p class="tut-question">
+            Voici deux dossiers rigoureusement identiques. L'un a reçu son
+            écédar, l'autre non. Le premier a trente jours qui courent. Le
+            second n'a <strong>rien</strong> qui court — pas une échéance
+            lointaine&nbsp;: pas d'échéance du tout.
+        </p>
+
+        <p>
+            L'écédar (<span class="arabe" lang="ar" dir="rtl">الإعذار</span>) est
+            une mise en demeure qui prend la forme d'un interrogatoire par un
+            officier de police judiciaire, sur instruction du parquet. Il est
+            postérieur à la plainte, donc de plusieurs semaines au rejet du
+            chèque — ici
+            <strong>{{ horloges.ecartRejetEcedar }} jours</strong> entre
+            l'incident de paiement et l'écédar, mesurés sur les dates du dossier.
+            Faire courir les trente jours depuis le rejet, comme le fait toute la
+            presse, se trompe de cet écart-là.
+            <span class="tut-renvoi">LOI.md § 2 et § 4.5</span>
+        </p>
+
+        <div class="tut-deux">
+            {% for cle, colonne in {'avecEcedar': horloges.avecEcedar, 'sansEcedar': horloges.sansEcedar} %}
+                <div class="tut-volet">
+                    <h3 class="tut-volet__titre">
+                        {{ colonne.reference }} —
+                        {% if colonne.dateEcedar %}écédar notifié{% else %}aucun écédar{% endif %}
+                    </h3>
+
+                    <p>
+                        État&nbsp;: <code>{{ colonne.etat.value }}</code><br>
+                        Écédar&nbsp;:
+                        {% if colonne.dateEcedar %}
+                            <strong>{{ colonne.dateEcedar|date('d/m/Y') }}</strong>
+                        {% else %}
+                            <span class="sourd">non notifié</span>
+                        {% endif %}
+                    </p>
+
+                    <div class="defilant">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Horloge</th>
+                                    <th scope="col">Départ</th>
+                                    <th scope="col">Échéance</th>
+                                    <th scope="col">Reste</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for code, ligne in colonne.lignes %}
+                                    <tr>
+                                        <th scope="row">
+                                            {{ code }}<br>
+                                            <span class="sourd">{{ ligne.horloge.libelle }}</span>
+                                        </th>
+                                        <td>{{ ligne.horloge.depart|date('d/m/Y') }}</td>
+                                        <td>
+                                            {{ ligne.horloge.echeance|date('d/m/Y') }}
+                                            {% if ligne.jourNonOuvre %}
+                                                <br><span class="sourd">jour probablement non ouvré</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if ligne.depassee %}
+                                                <span class="jalon jalon--perdu">échue</span>
+                                            {% else %}
+                                                <span class="jalon jalon--en-cours">{{ ligne.joursRestants }} j</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="sourd">
+                        {{ colonne.lignes|length }} horloge{{ colonne.lignes|length == 1 ? '' : 's' }}
+                        existe{{ colonne.lignes|length == 1 ? '' : 'nt' }} sur ce dossier. Les
+                        horloges absentes ne sont pas affichées à zéro&nbsp;: elles
+                        n'existent pas, faute de point de départ.
+                    </p>
+
+                    {# Une liste de définitions et NON un tableau de deux
+                       colonnes, et c'est une mesure qui l'a imposé : à 375 px,
+                       `joursRestantsSurLeDelaiPenal()` en police à chasse fixe
+                       fait 255 px, ce qui portait la largeur minimale du
+                       tableau à 346 px dans une colonne de 309 et faisait
+                       déborder la page de quatre pixels. La charte interdit
+                       `overflow-wrap: anywhere`, qui aurait écrasé les
+                       colonnes ; empilée, chaque signature a toute la largeur
+                       de la colonne et rien ne déborde. #}
+                    <dl class="tut-predicats">
+                        <dt><code>joursRestantsSurLeDelaiPenal()</code></dt>
+                        <dd>
+                            {% if colonne.joursRestantsSurLeDelaiPenal is null %}
+                                <code>null</code>
+                                <span class="sourd">— et non zéro&nbsp;: zéro voudrait dire
+                                « il expire aujourd'hui »</span>
+                            {% else %}
+                                <code>{{ colonne.joursRestantsSurLeDelaiPenal }}</code>
+                            {% endif %}
+                        </dd>
+
+                        <dt><code>delaiPenalExpire()</code></dt>
+                        <dd><code>{{ colonne.delaiPenalExpire ? 'true' : 'false' }}</code></dd>
+
+                        <dt><code>etat().faitCourirLeDelaiPenal()</code></dt>
+                        <dd><code>{{ colonne.etatFaitCourirLeDelai ? 'true' : 'false' }}</code></dd>
+                    </dl>
+
+                    <h3 class="tut-volet__titre">Et si on demandait <code>expirer_delai</code>&nbsp;?</h3>
+                    {{ m.blocages(colonne.blocagesExpirer, etiquettesDeDegre) }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="encart">
+            <h3>Ce que ces deux colonnes prouvent</h3>
+            <p>
+                Les deux dossiers partagent la même date d'émission
+                ({{ horloges.communs.memeDateEmission ? 'identique' : 'différente' }}), la
+                même date d'incident
+                ({{ horloges.communs.memeDateIncident ? 'identique' : 'différente' }}) et
+                la même date d'injonction bancaire
+                ({{ horloges.communs.memeDateInjonction ? 'identique' : 'différente' }}).
+                L'écédar est la seule différence, et il ne décale pas une échéance&nbsp;:
+                il en <em>crée</em> une.
+            </p>
+            <p class="tut-fin">
+                C'est pour cela qu'un champ unique <code>dateLimiteRegularisation</code>
+                dans l'entité <code>Dossier</code> est interdit par le dossier de
+                règles&nbsp;: les cinq horloges n'ont ni le même départ, ni la même
+                durée, ni le même effet, et deux d'entre elles courent en parallèle
+                avec des enjeux différents — l'action publique d'un côté,
+                l'interdiction d'émettre de l'autre.
+                <span class="tut-renvoi">LOI.md § 2</span>
+            </p>
+        </div>
+    </section>
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       § 2 — CE QUE LA MACHINE À ÉTATS REFUSE
+       ═══════════════════════════════════════════════════════════════════ #}
+
+    <section class="tut-chapitre" id="refus">
+        <h2><span class="tut-rang">2</span> Ce que la machine à états refuse</h2>
+
+        <p class="tut-question">
+            La garde n'est pas un <code>if</code> dans un contrôleur. C'est le
+            composant Workflow qui refuse, et son refus porte un code stable,
+            un article et un degré de certitude.
+        </p>
+
+        <p>
+            La machine <code>dossier_penal</code> déclare
+            <strong>{{ graphe.places }} places</strong> et
+            <strong>{{ graphe.transitionsNommees }} transitions nommées</strong>,
+            comptées sur la définition chargée par le conteneur. Le composant en
+            construit <strong>{{ graphe.transitions }}</strong> objets
+            <code>Transition</code>, parce qu'une transition qui part de plusieurs
+            places en produit une par place de départ&nbsp;: c'est le second chiffre
+            qu'affiche <code>workflow:dump</code>, et le premier qu'on lit dans le
+            fichier.
+        </p>
+
+        <p>
+            C'est une <code>state_machine</code> et non un <code>workflow</code>&nbsp;:
+            un dossier occupe une position procédurale, et une seule. Autoriser deux
+            places simultanées rendrait exprimable un état que le droit exclut —
+            « délai en cours » et « poursuite engagée » à la fois —, et une machine
+            à états qui peut représenter l'impossible ne protège plus de rien.
+        </p>
+
+        <h3>La configuration, lue sur le disque</h3>
+
+        <p>
+            Les deux extraits ci-dessous ne sont pas recopiés dans ce gabarit&nbsp;:
+            ils sont lus dans <code>{{ refus.yaml.chemin }}</code> à l'instant où
+            vous chargez la page. Un extrait recopié se désynchronise de la
+            configuration qu'il prétend montrer, et c'est exactement ce que vous
+            venez vérifier.
+        </p>
+
+        {% for cle, extrait in {'proroger_delai': refus.yaml.proroger, 'expirer_delai': refus.yaml.expirer} %}
+            <div class="tut-source">
+                <div class="tut-source__entete">
+                    <span>{{ refus.yaml.chemin }}</span>
+                    <span>lignes {{ extrait.premiereLigne }}–{{ extrait.derniereLigne }}</span>
+                </div>
+                <pre>{{ extrait.texte }}</pre>
+            </div>
+            <p class="sourd">
+                {{ extrait.lignesDeCommentaire }} lignes de commentaire ont été
+                retirées de cet extrait, et elles ne sont pas un ornement&nbsp;: ce
+                sont elles qui portent l'arbitrage, ses sources et les commandes
+                qui le vérifient. Elles se lisent aux lignes
+                {{ extrait.commentairePremiereLigne }}–{{ extrait.commentaireDerniereLigne }}
+                du fichier. Les reproduire ici noierait la définition qu'on veut
+                montrer&nbsp;; les effacer en silence laisserait croire qu'elles
+                n'existent pas.
+                {% if cle == 'expirer_delai' %}
+                    Notez l'absence de garde ici&nbsp;: la seule condition est
+                    temporelle, et le langage d'expressions n'a pas accès à
+                    l'horloge. La garde est donc entière dans
+                    <code>App\Workflow\EcouteurDeGardesTemporelles</code>, qui
+                    reçoit <code>Psr\Clock\ClockInterface</code> par injection — ce
+                    qui est aussi ce qui rend la démonstration possible. Et cette
+                    transition est poussée par le Scheduler, donc hors requête&nbsp;:
+                    un <code>is_granted()</code> y lèverait une exception faute de
+                    jeton de sécurité.
+                {% endif %}
+            </p>
+        {% endfor %}
+
+        <p class="sourd">
+            Reproductible&nbsp;:
+            {% for commande in refus.commandes %}
+                <code>{{ commande }}</code>{% if not loop.last %}, {% endif %}
+            {% endfor %}.
+        </p>
+
+        <h3>La même transition, sous trois identités</h3>
+
+        <p>
+            La garde de <code>proroger_delai</code> porte un
+            <code>is_granted()</code>, et ce n'est pas une politique
+            d'interface&nbsp;: l'article 325 al. 8 fait de l'accord du bénéficiaire
+            une <strong>condition</strong>. Le droit est donc porté par
+            <code>App\Security\Voter\DossierVoter</code>, et c'est le bénéficiaire
+            — pas le greffe, pas le tireur — qui peut le donner. Le dossier
+            <code>{{ refus.prorogation.reference }}</code> est à l'état
+            <code>{{ refus.prorogation.etat.value }}</code>&nbsp;; sa demande de
+            prorogation porte une décision du parquet, l'accord du bénéficiaire et
+            une durée suffisante.
+        </p>
+
+        {% for identite, verdict in refus.prorogation.verdicts %}
+            <div class="tut-volet tut-volet--empile">
+                <h3 class="tut-volet__titre">
+                    Identité&nbsp;: {{ identite }} —
+                    {% if verdict.franchissable %}
+                        <span class="oui">franchissable</span>
+                    {% else %}
+                        <span class="non">refusée</span>
+                    {% endif %}
+                </h3>
+                {{ m.blocages(verdict.blocages, etiquettesDeDegre, loop.first) }}
+                {{ m.conjonctions(verdict.conjonctions) }}
+            </div>
+        {% endfor %}
+
+        <div class="encart">
+            <h3>Lisez la ligne qui est fausse sous l'identité du bénéficiaire</h3>
+            <p>
+                Sous l'identité du bénéficiaire, le vote de sécurité est favorable et
+                les conditions de droit — décision du ministère public, accord du
+                bénéficiaire, durée au moins égale au délai initial — sont vraies.
+                {% set faux = refus.prorogation.verdicts.beneficiaire.membresFaux %}
+                {% if faux is empty %}
+                    Aucune condition ne bloque plus à ce cran d'horloge.
+                {% else %}
+                    Ce qui reste faux&nbsp;:
+                    {% for membre in faux %}<code>{{ membre }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+                {% endif %}
+            </p>
+            <p class="tut-fin">
+                Cette liste est extraite du tableau ci-dessus par le moteur, pas écrite
+                dans ce gabarit&nbsp;: si une garde change, la phrase change avec elle.
+                Et <code>quotaProlongationsEpuise()</code>
+                <strong>ne vient pas de la loi</strong>. C'est le § 3 qui en traite, et
+                c'est le passage le plus important de ce tutoriel.
+            </p>
+        </div>
+
+        <h3>Et une transition qui n'appartient pas au bénéficiaire</h3>
+
+        <p>
+            Le dossier <code>{{ refus.ecedar.reference }}</code>, à l'état
+            <code>{{ refus.ecedar.etat.value }}</code>, est <em>prêt</em> à être
+            écédarisé&nbsp;: le procès-verbal d'audition et les mesures de contrôle
+            judiciaire sont au dossier. Les deux conditions « état du sujet » de la
+            garde de <code>notifier_ecedar</code> sont donc vraies pour tout le
+            monde, et la seule qui sépare les identités est le vote de sécurité —
+            la décision du parquet entre dans ce logiciel comme une <em>pièce</em>,
+            pas comme un acte, et c'est le greffe qui la consigne.
+        </p>
+
+        {% for identite, verdict in refus.ecedar.verdicts %}
+            <div class="tut-volet tut-volet--empile">
+                <h3 class="tut-volet__titre">
+                    <code>notifier_ecedar</code> sous l'identité {{ identite }} —
+                    {% if verdict.franchissable %}
+                        <span class="oui">franchissable</span>
+                    {% else %}
+                        <span class="non">refusée</span>
+                    {% endif %}
+                </h3>
+                {{ m.conjonctions(verdict.conjonctions) }}
+                {% if verdict.franchissable %}
+                    <p class="tut-fin sourd">
+                        Aucun membre faux&nbsp;: la transition serait franchie. Elle ne
+                        l'est pas ici — ce tutoriel ne fait que demander le verdict.
+                    </p>
+                {% else %}
+                    <p class="tut-fin sourd">
+                        Membre{{ verdict.membresFaux|length == 1 ? '' : 's' }} faux&nbsp;:
+                        {% for membre in verdict.membresFaux %}<code>{{ membre }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+                    </p>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <p class="sourd">
+            Les attributs d'autorisation ne sont donc pas interchangeables, et ce
+            n'est pas une commodité d'interface&nbsp;: un bénéficiaire qui pourrait
+            notifier un écédar, ou un greffe qui pourrait donner l'accord exigé par
+            l'article 325 al. 8, seraient deux règles de droit fausses.
+        </p>
+    </section>
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       § 3 — CE QUI VIENT DU TEXTE ET CE QUI VIENT DE NOUS
+       ═══════════════════════════════════════════════════════════════════ #}
+
+    <section class="tut-chapitre" id="certitude">
+        <h2><span class="tut-rang">3</span> Ce qui vient du texte et ce qui vient de nous</h2>
+
+        <p class="tut-question">
+            C'est le passage le plus important de ce tutoriel. Un produit qui
+            affiche du droit reconstitué doit montrer, d'un coup d'œil, ce qu'il
+            sait et ce qu'il suppose. Les deux règles ci-dessous bloquent le même
+            dossier&nbsp;; elles n'ont pas du tout le même statut, et elles ne
+            s'affichent pas de la même façon.
+        </p>
+
+        <div class="tut-deux">
+            <div class="tut-volet">
+                <h3 class="tut-volet__titre">Du texte — filet plein</h3>
+                <p class="sourd">
+                    Lue sur le Bulletin officiel arabe. Elle a le droit de porter
+                    « loi n° 71.24 » sous elle.
+                </p>
+                {{ m.regle(certitude.etabli, etiquettesDeDegre) }}
+            </div>
+
+            <div class="tut-volet">
+                <h3 class="tut-volet__titre">De nous — filet pointillé, grille de points, retrait</h3>
+                <p class="sourd">
+                    Un paramètre de ce logiciel. Elle n'a <strong>pas</strong> le
+                    droit de porter « loi n° 71.24 », et son attribution dit
+                    exactement de quoi elle vient.
+                </p>
+                {{ m.regle(certitude.choixProduit, etiquettesDeDegre) }}
+            </div>
+        </div>
+
+        <div class="encart">
+            <h3>Pourquoi le quota n'est pas une règle de droit</h3>
+            <p>
+                Le brief initial de ce projet, et l'essentiel de la presse,
+                écrivent « trente jours, prolongeables une seule fois ».
+                <strong>Cette règle n'existe pas.</strong> L'article 325 al. 8
+                nouveau ouvre une prorogation
+                <span class="arabe" lang="ar" dir="rtl">لمدة مماثلة أو أكثر</span>
+                — pour une durée <em>égale ou supérieure</em> — après décision du
+                ministère public et accord du bénéficiaire, sans plafond de durée
+                et sans limite de nombre.
+            </p>
+            <p>
+                La vérification est une <strong>absence</strong>, et elle est
+                reproductible depuis la racine du dépôt — les commandes exactes
+                sont dans <code>config/packages/tasswiya.yaml</code>, à côté du
+                paramètre qu'elles justifient, et l'arbitrage complet est dans
+                <span class="tut-renvoi">LOI.md § 4.1</span>.
+            </p>
+            <p class="tut-fin">
+                La garde reste — c'est le moment filmé — mais elle change de
+                nature. Elle s'appelle <code>quotaProlongationsEpuise()</code> et
+                non <code>prolongationDejaJoueeUneFois()</code>, elle est
+                paramétrable, elle est persistée par dossier pour qu'un changement
+                de configuration ne modifie pas rétroactivement un dossier déjà
+                ouvert, et son degré affiché est
+                <strong>{{ etiquettesDeDegre[certitude.choixProduit.degre.value] }}</strong>.
+                Une info-bulle qui dirait « déjà prolongé une fois — loi 71-24 »
+                serait une fausse citation.
+            </p>
+        </div>
+
+        <h3>À côté du paramètre, les gardes vraiment légales</h3>
+
+        <p>
+            Elles méritent autant la caméra, et plus, puisqu'elles sont dans le
+            texte. Les deux sont cumulatives et asymétriques&nbsp;: le parquet peut
+            refuser même si le bénéficiaire accepte, et l'accord du bénéficiaire
+            est sans effet si le parquet refuse. La seconde est la condition que le
+            brief du projet avait oubliée.
+        </p>
+
+        {{ m.regle(certitude.legaleVoisine, etiquettesDeDegre) }}
+        {{ m.regle(certitude.decisionParquet, etiquettesDeDegre) }}
+
+        <h3>Comment le catalogue se répartit</h3>
+
+        <p>
+            Le catalogue des blocages contient
+            <strong>{{ certitude.total }}</strong> règles, chacune avec son article
+            et son degré. Le compte ci-dessous est fait par cette page sur le
+            catalogue réel&nbsp;; il se reproduit en ligne de commande, par exemple
+            <code>{{ certitude.commande }}</code>.
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">Degré</th>
+                    <th scope="col">Règles</th>
+                    <th scope="col">Ce que l'écran en fait</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for degre, nombre in certitude.parDegre %}
+                    <tr>
+                        <th scope="row">{{ etiquettesDeDegre[degre] }}</th>
+                        <td><code>{{ nombre }}</code></td>
+                        <td class="sourd">
+                            {% if degre == 'etabli' %}
+                                S'affiche normalement, avec son article en légende.
+                            {% elseif degre == 'probable' %}
+                                S'affiche en citant sa source secondaire réelle, jamais « loi 71-24 ».
+                            {% elseif degre == 'incertain' %}
+                                Alerte au lieu de conclure. Ne pilote aucun calcul en silence.
+                            {% else %}
+                                S'affiche en retrait, comme une hypothèse de calcul distincte des règles sourcées.
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p class="sourd">
+            Le cinquième rôle de la charte — le degré — n'a <strong>aucune
+            couleur</strong>, et c'est la décision centrale du design&nbsp;: les
+            quatre autres rôles occupent déjà le cercle, et « incertain » devrait
+            alerter, donc tirer vers le rouge, qui appartient à « délai expiré ».
+            Un rouge qui voudrait dire deux choses ne dirait plus rien. Le degré
+            est donc porté par le filet, la trame, le retrait et le mot — quatre
+            canaux dont trois survivent au noir et blanc par construction.
+        </p>
+    </section>
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       § 4 — CE QUE LE PROJET NE SAIT PAS FAIRE
+       ═══════════════════════════════════════════════════════════════════ #}
+
+    <section class="tut-chapitre" id="limites">
+        <h2><span class="tut-rang">4</span> Ce que le projet ne sait pas faire</h2>
+
+        <p class="tut-question">
+            Un tutoriel qui ne dirait que les forces se lirait comme une
+            brochure. Et ce n'est pas de la modestie de façade&nbsp;: le dossier de
+            règles impose qu'une règle incertaine <em>alerte</em> au lieu de
+            conclure. Voici ces points-là, en acte.
+        </p>
+
+        <h3>La nature des jours n'est pas tranchée</h3>
+
+        <p>
+            La loi 71.24 ne contient <strong>aucune</strong> clause sur le calcul
+            des délais&nbsp;: ni jours francs, ni sort du jour de départ, ni report
+            si le trentième jour tombe un vendredi, un jour férié ou pendant le
+            Ramadan. Le silence est d'autant plus net que la loi 52.23, publiée
+            dans le <em>même</em> Bulletin officiel, précise que ses délais sont
+            des délais francs. Le législateur sait donc écrire cette clause, et ne
+            l'a pas écrite ici.
+            <span class="tut-renvoi">LOI.md § 4.15 et § 6 H1-H2</span>
+        </p>
+
+        <p>
+            Une machine à états doit pourtant trancher pour produire une date. Le
+            choix est donc une interface remplaçable, et voici la même échéance
+            calculée par ses <strong>deux</strong> implémentations, à partir du
+            même départ ({{ incertitudes.natureDesJours.depart|date('d/m/Y') }}) et
+            de la même durée ({{ incertitudes.natureDesJours.duree }} jours)&nbsp;:
+        </p>
+
+        <div class="defilant">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Implémentation</th>
+                        <th scope="col">Échéance</th>
+                        <th scope="col">Ce qu'elle suppose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for nom, lecture in {'DelaisCalendairesSansReport': incertitudes.natureDesJours.calendaire, 'DelaisFrancs': incertitudes.natureDesJours.franc} %}
+                        <tr>
+                            <th scope="row">
+                                <code>{{ nom }}</code>
+                                {% if lecture.parDefaut %}
+                                    <br><span class="sourd">câblée par l'autowiring</span>
+                                {% else %}
+                                    <br><span class="sourd">substituable en un alias de conteneur</span>
+                                {% endif %}
+                            </th>
+                            <td><strong>{{ lecture.echeance|date('d/m/Y') }}</strong></td>
+                            <td class="sourd">{{ lecture.libelle }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p>
+            L'écart est de
+            <strong>{{ incertitudes.natureDesJours.ecartEnJours }}
+            jour{{ incertitudes.natureDesJours.ecartEnJours == 1 ? '' : 's' }}</strong>,
+            calculé ci-dessus et non annoncé. Un jour, sur un délai dont dépend la
+            mise en mouvement de l'action publique. Si une circulaire ou un arrêt
+            vient dire que ces trente jours sont francs, c'est la seconde
+            implémentation qui devient la bonne, et un alias de conteneur suffit à
+            basculer tout le produit — mais aujourd'hui, personne ne l'a dit.
+        </p>
+
+        <p>
+            L'échéance affichée tombe
+            {% if incertitudes.jourNonOuvre.concerne %}
+                <strong>un jour probablement non ouvré</strong>
+                ({{ incertitudes.jourNonOuvre.echeance|date('d/m/Y') }}). Le
+                produit le <em>signale</em> et ne décale rien&nbsp;: reporter serait
+                inventer une règle que le texte ne porte pas, ne rien dire serait
+                laisser passer une difficulté réelle.
+            {% else %}
+                un jour ouvré ({{ incertitudes.jourNonOuvre.echeance|date('d/m/Y') }}).
+                Quand ce n'est pas le cas, le produit le signale sans rien décaler.
+            {% endif %}
+            Et « probablement » est un mot pesé&nbsp;: on sait tester le vendredi et
+            le week-end, pas le calendrier des fêtes mobiles ni le Ramadan, dont
+            les dates dépendent de l'observation lunaire.
+        </p>
+
+        <h3>Le bénéficiaire injoignable, décédé ou pluriel</h3>
+
+        <p>
+            Angle mort complet du texte. L'article 325 al. 8 exige l'accord du
+            bénéficiaire sans dire qui le donne à sa place. Voici le dossier
+            <code>{{ incertitudes.beneficiaireIndisponible.reference }}</code>, dont
+            le bénéficiaire est déclaré
+            <code>{{ incertitudes.beneficiaireIndisponible.disponibilite.value }}</code>&nbsp;:
+            son quota de prorogations est intact, la décision du parquet est
+            enregistrée, l'accord avait été donné. Une seule condition est fausse,
+            et elle n'est pas dans la loi.
+        </p>
+
+        {% if incertitudes.beneficiaireIndisponible.explication %}
+            <p class="tut-alerte">
+                <strong>Ce que l'écran affiche</strong><br>
+                {{ incertitudes.beneficiaireIndisponible.explication }}
+            </p>
+        {% endif %}
+
+        {{ m.conjonctions(incertitudes.beneficiaireIndisponible.verdict.conjonctions) }}
+
+        {{ m.regle(incertitudes.beneficiaireIndisponible.regle, etiquettesDeDegre) }}
+
+        <h3>L'assiette de l'amende est presque toujours indéterminée</h3>
+
+        <p>
+            La loi distingue l'assiette « montant du chèque » et l'assiette
+            « manquant ». Mais, d'après le seul praticien signé qui en traite, le
+            certificat de refus se borne en pratique à indiquer que la provision
+            est inexistante ou insuffisante <strong>sans chiffrer le
+            découvert</strong>. Le champ est donc vide dans la majorité des cas, et
+            le produit ne calcule rien&nbsp;: retomber silencieusement sur le montant
+            du chèque surestimerait l'amende.
+            <span class="tut-renvoi">LOI.md § 4.14 et § 6 H6</span>
+        </p>
+
+        <table class="tut-fiche">
+            <tbody>
+                <tr>
+                    <th scope="row">Montant du chèque</th>
+                    <td><span class="montant">{{ (incertitudes.assiette.montantDuCheque / 100)|number_format(2, ',', ' ') }} MAD</span>
+                        <span class="sourd">— fictif</span></td>
+                </tr>
+                <tr>
+                    <th scope="row">Manquant chiffré au certificat</th>
+                    <td>
+                        {% if incertitudes.assiette.manquant is null %}
+                            <span class="montant--indetermine">non chiffré</span>
+                        {% else %}
+                            <span class="montant">{{ (incertitudes.assiette.manquant / 100)|number_format(2, ',', ' ') }} MAD</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Assiette retenue</th>
+                    <td>
+                        {% if incertitudes.assiette.centimes is null %}
+                            <span class="montant--indetermine">assiette indéterminée</span><br>
+                            <span class="sourd">aucun montant n'est calculé, et c'est le résultat
+                            attendu&nbsp;: le certificat de refus ne chiffre pas le manquant.</span>
+                        {% else %}
+                            <span class="montant">{{ (incertitudes.assiette.centimes / 100)|number_format(2, ',', ' ') }} MAD</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="sourd">
+            Le rôle « or » de la charte ne se pose que sur des <em>montants</em>,
+            toujours en police à chasse fixe. Un montant que le produit refuse de
+            chiffrer garde la place et la police, mais perd l'or&nbsp;: il n'y a pas
+            de valeur. Et aucun montant de ce logiciel n'est opposable&nbsp;: les
+            amendes sont fixées par le tribunal ou par la banque.
+        </p>
+
+        <h3>Les règles que le produit signale comme non tranchées</h3>
+
+        <p>
+            Elles sortent du catalogue réel, filtrées sur leur degré. Chacune
+            bloque en l'expliquant, au lieu de conclure.
+        </p>
+
+        {% for code, r in incertitudes.regles %}
+            {{ m.regle(r, etiquettesDeDegre) }}
+        {% endfor %}
+
+        <div class="encart">
+            <h3>Et ce que le produit n'affichera pas du tout</h3>
+            <p class="tut-fin">
+                Une liste est tenue dans <code>config/packages/tasswiya.yaml</code>,
+                sous <code>tasswiya.interdits_d_affichage</code>, pour qu'un ajout
+                futur se heurte à une raison écrite plutôt qu'à un oubli&nbsp;: aucune
+                comparaison de barèmes dont la grandeur de départ n'est pas tranchée,
+                aucune statistique sur les prorogations — personne n'en publie —,
+                aucune pièce inventée, aucun seuil de « petit chèque », aucun chiffre
+                du phénomène connu seulement par reprise de presse. La règle du projet
+                est qu'aucun nombre ne se publie sans la commande qui l'imprime.
+            </p>
+        </div>
+    </section>
+
+    {# ═══════════════════════════════════════════════════════════════════════
+       OÙ VÉRIFIER
+       ═══════════════════════════════════════════════════════════════════ #}
+
+    <section class="tut-chapitre" id="verifier">
+        <h2>Où vérifier, pièce par pièce</h2>
+
+        <p class="tut-question">
+            Rien de cette page ne demande à être cru. Voici où chaque chose se
+            vérifie.
+        </p>
+
+        <div class="defilant">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Ce que vous voulez vérifier</th>
+                        <th scope="col">Où</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">Le graphe, ses places et ses gardes</th>
+                        <td><code>config/packages/workflow.yaml</code><br>
+                            <code>bin/console workflow:dump dossier_penal</code></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Les gardes qui dépendent du temps, et pourquoi elles ne sont pas dans le YAML</th>
+                        <td><code>src/Workflow/EcouteurDeGardesTemporelles.php</code></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">L'article et le degré de chaque refus</th>
+                        <td><code>src/Workflow/CatalogueDesBlocages.php</code></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Les cinq horloges, leurs départs et leurs effets</th>
+                        <td><code>src/Domaine/Horloge/Horloge.php</code><br>
+                            <code>src/Domaine/Horloge/CalculateurDHorloges.php</code></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Ce qui est un choix de développeur et non du droit</th>
+                        <td><code>config/packages/tasswiya.yaml</code><br>
+                            <span class="tut-renvoi">LOI.md § 6</span></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">L'arbitrage de chaque contradiction des sources</th>
+                        <td><span class="tut-renvoi">LOI.md § 4</span> — chaque règle
+                            avec sa source et son degré</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Le texte lui-même</th>
+                        <td>{{ source_officielle }}<br>
+                            <span class="sourd">version arabe, seule officielle</span></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">La bascule automatique, en production</th>
+                        <td><code>src/Workflow/ExpirateurDeDelais.php</code><br>
+                            <code>{{ moment.commandeDeProduction }}</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="encart">
+            <h3>Les données de cet écran</h3>
+            <p class="tut-fin">
+                Les cinq dossiers de cette page sont construits en mémoire à
+                chaque requête et jetés à la fin&nbsp;: aucune écriture, aucune
+                requête de lecture, rien ne subsiste. Les noms sont des rôles, les
+                adresses sont en <code>.invalid</code> — domaine réservé qui ne peut
+                désigner personne —, et les références de pièces portent le mot
+                « fictif ». Aucune banque n'est nommée, aucun numéro de chèque n'est
+                plausible, aucune donnée personnelle réelle ne figure nulle part.
+                <span class="tut-renvoi">LOI.md § 6 H8</span>
+            </p>
+        </div>
+    </section>
+{% endblock %}
